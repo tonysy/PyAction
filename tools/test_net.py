@@ -3,8 +3,11 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 """Multi-view test a video classification model."""
-import numpy as np
 import sys
+
+sys.path.insert(0, ".")
+
+import numpy as np
 import torch
 
 import pyaction.utils.checkpoint as cu
@@ -17,8 +20,6 @@ from pyaction.datasets import loader
 from pyaction.utils.meters import AVAMeter, TestMeter
 
 from net import build_model
-
-sys.path.insert(0, ".")
 
 
 def perform_test(test_loader, model, test_meter, cfg):

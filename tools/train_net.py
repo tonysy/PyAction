@@ -3,9 +3,12 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 """Train a video classification model."""
+import sys
+
+sys.path.insert(0, ".")
+
 import numpy as np
 import pprint
-import sys
 import torch
 from fvcore.nn.precise_bn import get_bn_modules, update_bn_stats
 
@@ -22,8 +25,6 @@ from pyaction.datasets import loader
 from pyaction.utils.meters import AVAMeter, TrainMeter, ValMeter
 
 from net import build_model
-
-sys.path.insert(0, ".")
 
 
 def train_epoch(train_loader, model, optimizer, train_meter, cur_epoch, cfg):
@@ -58,6 +59,8 @@ def train_epoch(train_loader, model, optimizer, train_meter, cur_epoch, cfg):
                     val[i] = val[i].cuda(non_blocking=True)
             else:
                 meta[key] = val.cuda(non_blocking=True)
+        # Record data time
+        train_meter.iter_data_toc()
 
         # Update the learning rate.
         lr = optim.get_epoch_lr(cur_epoch + float(cur_iter) / data_size, cfg)
@@ -71,6 +74,8 @@ def train_epoch(train_loader, model, optimizer, train_meter, cur_epoch, cfg):
             # Perform the forward pass.
             preds = model(inputs)
 
+        # Record network forward time
+        train_meter.iter_forward_toc()
         # Explicitly declare reduction to mean.
         loss_fun = losses.get_loss_func(cfg.MODEL.LOSS_FUNC)(reduction="mean")
 
@@ -80,11 +85,16 @@ def train_epoch(train_loader, model, optimizer, train_meter, cur_epoch, cfg):
         # check Nan Loss.
         misc.check_nan_losses(loss)
 
+        # Record loss computation time
+        train_meter.iter_loss_toc()
+
         # Perform the backward pass.
         optimizer.zero_grad()
         loss.backward()
         # Update the parameters.
         optimizer.step()
+        # Record network backward time
+        train_meter.iter_backward_toc()
 
         if cfg.DETECTION.ENABLE:
             if cfg.NUM_GPUS > 1:

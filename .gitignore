@@ -1,14 +1,15 @@
 # This project related
-data/
+# data/
 .vscode/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
-
+model_zoo/
+pyaction_run
 # C extensions
 *.so
-
+log/
 # Distribution / packaging
 .Python
 build/

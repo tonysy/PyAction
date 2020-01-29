@@ -3,9 +3,11 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 """Wrapper to train and test a video classification model."""
+import sys
+
+sys.path.insert(0, ".")
 
 import argparse
-import sys
 import torch
 
 import pyaction.utils.checkpoint as cu
@@ -14,8 +16,6 @@ import pyaction.utils.multiprocessing as mpu
 from config import config
 from test_net import test
 from train_net import train
-
-sys.path.insert(0, ".")
 
 
 # from pyaction.config.defaults import get_cfg

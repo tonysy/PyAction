@@ -9,8 +9,9 @@ import numpy as np
 import os
 from collections import defaultdict, deque
 import torch
-from fvcore.common.timer import Timer
+from statistics import mean
 
+from pyaction.utils.timer import Timer
 import pyaction.datasets.ava_helper as ava_helper
 import pyaction.utils.logging as logging
 import pyaction.utils.metrics as metrics
@@ -412,6 +413,30 @@ class TrainMeter(object):
         """
         self.iter_timer.pause()
 
+    def iter_data_toc(self):
+        """
+        Stop to record data processing time
+        """
+        self.iter_timer.data_toc()
+
+    def iter_forward_toc(self):
+        """
+        Stop to record network forward time
+        """
+        self.iter_timer.forward_toc()
+
+    def iter_loss_toc(self):
+        """
+        Stop to record network forward time
+        """
+        self.iter_timer.loss_toc()
+
+    def iter_backward_toc(self):
+        """
+        Stop to record network backward time
+        """
+        self.iter_timer.backward_toc()
+
     def update_stats(self, top1_err, top5_err, loss, lr, mb_size):
         """
         Update the current stats.
@@ -442,16 +467,42 @@ class TrainMeter(object):
         """
         if (cur_iter + 1) % self._cfg.LOG_PERIOD != 0:
             return
-        eta_sec = self.iter_timer.seconds() * (
+        # Method-1
+        # eta_sec = self.iter_timer.seconds() * (
+        #     self.MAX_EPOCH - (cur_epoch * self.epoch_iters + cur_iter + 1)
+        # )
+        # Method-2
+        # total_iters = cur_epoch * self.epoch_iters + cur_iter + 1
+        # past_seconds = self.iter_timer.past()
+        # eta_sec = (past_seconds / total_iters) * (
+        #     self.MAX_EPOCH - (cur_epoch * self.epoch_iters + cur_iter + 1)
+        # )
+        # Method-3
+        self.iter_timer._past_durations.append(self.iter_timer.seconds())
+        try:
+            eta_sec = mean(self.iter_timer._past_durations[-100:])
+        except Exception as e:
+            print(e)
+            eta_sec = mean(self.iter_timer._past_durations)
+
+        eta_sec = eta_sec * (
             self.MAX_EPOCH - (cur_epoch * self.epoch_iters + cur_iter + 1)
         )
+
         eta = str(datetime.timedelta(seconds=int(eta_sec)))
+
+        # import pdb; pdb.set_trace()
+
         mem_usage = misc.gpu_mem_usage()
         stats = {
             "_type": "train_iter",
             "epoch": "{}/{}".format(cur_epoch + 1, self._cfg.SOLVER.MAX_EPOCH),
             "iter": "{}/{}".format(cur_iter + 1, self.epoch_iters),
             "time_diff": self.iter_timer.seconds(),
+            "time_data": self.iter_timer.data_time,
+            "time_forward": self.iter_timer.forward_time,
+            "time_loss": self.iter_timer.loss_time,
+            "time_backward": self.iter_timer.backward_time,
             "eta": eta,
             "top1_err": self.mb_top1_err.get_win_median(),
             "top5_err": self.mb_top5_err.get_win_median(),
