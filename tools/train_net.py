@@ -7,8 +7,8 @@ import sys
 
 sys.path.insert(0, ".")
 
+import os
 import numpy as np
-import pprint
 import torch
 from fvcore.nn.precise_bn import get_bn_modules, update_bn_stats
 
@@ -246,13 +246,20 @@ def train(cfg):
     torch.manual_seed(cfg.RNG_SEED)
 
     # Setup logging format.
-    logging.setup_logging(cfg.OUTPUT_DIR)
+    logger = logging.setup_logging(os.path.join(cfg.OUTPUT_DIR, "train_log.txt"))
+
+    logger.info("Running with full config:\n{}".format(cfg))
+    base_config = cfg.__class__.__base__()
+    logger.info(
+        "different config with base class:\n{}".format(cfg.show_diff(base_config))
+    )
+
     # logger = logging.get_logger(name='pyaction')
-    logger = logging.get_logger(__name__)
+    # logger = logging.get_logger(__name__)
 
     # Print config.
-    logger.info("Train with config:")
-    logger.info(pprint.pformat(cfg))
+    # logger.info("Train with config:")
+    # logger.info(pprint.pformat(cfg))
 
     # Build the video model and print model statistics.
     # model = model_builder.build_model(cfg)

@@ -106,6 +106,8 @@ def setup_logging(output=None, color=True, name="pyaction", abbrev_name=None):
         fh.setFormatter(plain_formatter)
         logger.addHandler(fh)
 
+    return logger
+
 
 def get_logger(name):
     """

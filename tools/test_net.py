@@ -7,6 +7,7 @@ import sys
 
 sys.path.insert(0, ".")
 
+import os
 import numpy as np
 import torch
 
@@ -115,13 +116,19 @@ def test(cfg):
     torch.manual_seed(cfg.RNG_SEED)
 
     # Setup logging format.
-    logging.setup_logging(cfg.OUTPUT_DIR)
+    # logger = logging.setup_logging(cfg.OUTPUT_DIR)
+    logger = logging.setup_logging(os.path.join(cfg.OUTPUT_DIR, "test_log.txt"))
 
-    logger = logging.get_logger(__name__)
+    # logger = logging.get_logger(__name__)
+    logger.info("Running with full config:\n{}".format(cfg))
+    base_config = cfg.__class__.__base__()
+    logger.info(
+        "different config with base class:\n{}".format(cfg.show_diff(base_config))
+    )
 
     # Print config.
-    logger.info("Test with config:")
-    logger.info(cfg)
+    # logger.info("Test with config:")
+    # logger.info(cfg)
 
     # Build the video model and print model statistics.
     # model = model_builder.build_model(cfg)

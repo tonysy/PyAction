@@ -8,9 +8,7 @@ _config_dict = dict(
     BN=dict(
         USE_PRECISE_STATS=True, NUM_BATCHES_PRECISE=200, MOMENTUM=0.1, WEIGHT_DECAY=0.0,
     ),
-    TRAIN=dict(
-        DATASET="kinetics", BATCH_SIZE=128, EVAL_PERIOD=10, CHECKPOINT_PERIOD=1,
-    ),
+    TRAIN=dict(DATASET="kinetics", BATCH_SIZE=64, EVAL_PERIOD=10, CHECKPOINT_PERIOD=1,),
     DATA=dict(
         PATH_TO_DATA_DIR=osp.join(
             "/", *osp.realpath(pyaction.__file__).split("/")[:-2], "data/kinetics"
@@ -19,23 +17,15 @@ _config_dict = dict(
         SAMPLING_RATE=8,
         INPUT_CHANNEL_NUM=[3],
     ),
-    # SLOWFAST=dict(
-    #     # Corresponds to the inverse of the channel reduction ratio, $\beta$ between
-    #     # the Slow and Fast pathways.
-    #     BETA_INV = 8,
-    #     # Corresponds to the frame rate reduction ratio, $\alpha$ between the Slow and
-    #     # Fast pathways.
-    #     ALPHA=4,
-    #     # Ratio of channel dimensions between the Slow and Fast pathways.
-    #     FUSION_CONV_CHANNEL_RATIO = 2,
-    #     # Kernel dimension used for fusing information from Fast pathway to Slow
-    #     # pathway.
-    #     FUSION_KERNEL_SZ = 7
-    # ),
     RESNET=dict(
         ZERO_INIT_FINAL_BN=True, DEPTH=50, NUM_BLOCK_TEMP_KERNEL=[[3], [4], [6], [3]],
     ),
-    SOLVER=dict(BASE_LR=0.2, LR_POLICY="cosine", MAX_EPOCH=196, WARMUP_EPOCHS=34,),
+    NONLOCAL=dict(
+        LOCATION=[[[]], [[1, 3]], [[1, 3, 5]], [[]]],
+        GROUP=[[1], [1], [1], [1]],
+        INSTANTIATION="softmax",
+    ),
+    SOLVER=dict(BASE_LR=0.1, LR_POLICY="cosine", MAX_EPOCH=196, WARMUP_EPOCHS=34,),
     MODEL=dict(ARCH="c2d", NUM_CLASSES=400,),
     TEST=dict(ENABLE=True, DATASET="kinetics", BATCH_SIZE=64),
     DATA_LOADER=dict(

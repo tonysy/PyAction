@@ -272,7 +272,14 @@ class TestMeter(object):
         Args:
             cur_iter (int): the current iteration of testing.
         """
-        eta_sec = self.iter_timer.seconds() * (self.overall_iters - cur_iter)
+        self.iter_timer._past_durations.append(self.iter_timer.seconds())
+        try:
+            eta_sec = mean(self.iter_timer._past_durations[-500:])
+        except Exception as e:
+            print(e)
+            eta_sec = mean(self.iter_timer._past_durations)
+
+        eta_sec = eta_sec * (self.overall_iters - cur_iter)
         eta = str(datetime.timedelta(seconds=int(eta_sec)))
         stats = {
             "split": "test_iter",
@@ -480,7 +487,7 @@ class TrainMeter(object):
         # Method-3
         self.iter_timer._past_durations.append(self.iter_timer.seconds())
         try:
-            eta_sec = mean(self.iter_timer._past_durations[-100:])
+            eta_sec = mean(self.iter_timer._past_durations[-500:])
         except Exception as e:
             print(e)
             eta_sec = mean(self.iter_timer._past_durations)
