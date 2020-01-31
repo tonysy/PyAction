@@ -68,6 +68,9 @@ git clone https://github.com/tonysy/PyAction_Workspace workspace
 
 We only need to focus the model design within the project folder.
 All experiments are stored into the `workspace`.
+
+- Single Node
+
 ```
 cd workspace/kinetics/c2d.kinetivs400.8x8.res50
 # train with 4 GPUS as default
@@ -75,6 +78,14 @@ pyaction_run
 
 # only test with 4 GPUS as default
 pyaction_run TRAIN.ENABLE False
+```
+
+- Distributed train
+```bash
+# Node-1
+pyaction_run --shard_id 0 --num_shards 2 --init_method tcp://gnode22:9999
+# Node-2
+pyaction_run --shard_id 1 --num_shards 2 --init_method tcp://gnode22:9999
 ```
 
 ## 5. Develop
