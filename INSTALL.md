@@ -58,8 +58,15 @@ python setup.py build develop
 Prepare the dataset for training and evaluation in [DATASET.md](DATASET.md)
 
 ## 4. Project Training
+1. Clone the workspace and link to the current folder
+```bash
+# at the root of the pyaction project
+git clone https://github.com/tonysy/PyAction_Workspace workspace
+```
 
-We use folder-based develop pipeline. We only need to focus the model design within the project folder.
+2. We use folder-based develop pipeline. 
+
+We only need to focus the model design within the project folder.
 All experiments are stored into the `workspace`.
 ```
 cd workspace/kinetics/c2d.kinetivs400.8x8.res50

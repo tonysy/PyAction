@@ -15,8 +15,10 @@ cat_list = sorted(cat_list)
 assert len(cat_list) == 400
 
 cat_mapping = {item: idx for idx, item in enumerate(cat_list)}
-with open("cat_mapping.json", "w") as f:
-    json.dump(cat_mapping, f)
+
+if not os.path.exists("./cat_mapping.json"):
+    with open("cat_mapping.json", "w") as f:
+        json.dump(cat_mapping, f)
 
 # ------------- Train CSV generation ----------------------
 train_data_path = os.path.join(
