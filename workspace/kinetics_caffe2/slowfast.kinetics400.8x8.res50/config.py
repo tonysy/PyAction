@@ -54,7 +54,7 @@ _config_dict = dict(
     TEST=dict(
         ENABLE=True,
         DATASET="kinetics",
-        BATCH_SIZE=64,
+        BATCH_SIZE=48,
         CHECKPOINT_TYPE="caffe2",
         CHECKPOINT_FILE_PATH=osp.join(
             "/",
@@ -63,7 +63,7 @@ _config_dict = dict(
         ),
     ),
     DATA_LOADER=dict(
-        NUM_WORKERS=16,
+        NUM_WORKERS=8,
         PIN_MEMORY=True,
         # ENABLE_MULTI_THREAD_DECODE=True
     ),

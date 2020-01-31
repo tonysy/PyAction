@@ -2,12 +2,16 @@ import json
 import os
 from tqdm import tqdm
 
-data_path = (
-    "/public/sist/home/hexm/Datasets/kinetics-400/" "raw-part/compress/train_256"
+dataset_path_prefix = "/public/sist/home/hexm/Datasets/"
+
+
+data_path = os.path.join(
+    dataset_path_prefix, "kinetics-400/raw-part/compress/train_256"
 )
 
 assert os.path.exists(data_path)
 cat_list = os.listdir(data_path)
+cat_list = sorted(cat_list)
 assert len(cat_list) == 400
 
 cat_mapping = {item: idx for idx, item in enumerate(cat_list)}
@@ -15,8 +19,8 @@ with open("cat_mapping.json", "w") as f:
     json.dump(cat_mapping, f)
 
 # ------------- Train CSV generation ----------------------
-train_data_path = (
-    "/public/sist/home/hexm/Datasets/kinetics-400/" "raw-part/compress/train_256"
+train_data_path = os.path.join(
+    dataset_path_prefix, "kinetics-400/raw-part/compress/train_256"
 )
 
 train_cat_dict = {}
@@ -39,8 +43,8 @@ print("Total Train {} video clips".format(len(train_csv_list)))
 
 # ------------- Val CSV generation ----------------------
 
-val_data_path = (
-    "/public/sist/home/hexm/Datasets/kinetics-400/" "raw-part/compress/val_256"
+val_data_path = os.path.join(
+    dataset_path_prefix, "kinetics-400/raw-part/compress/val_256"
 )
 
 val_cat_dict = {}
@@ -57,6 +61,9 @@ for cat_name in tqdm(cat_list):
         val_csv_list.append(str_)
 
 with open("val.csv", "w") as f:
+    f.writelines(val_csv_list)
+
+with open("test.csv", "w") as f:
     f.writelines(val_csv_list)
 
 print("Total Val {} video clips".format(len(val_csv_list)))

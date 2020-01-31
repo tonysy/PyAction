@@ -266,6 +266,15 @@ class TestMeter(object):
             self.video_preds[vid_id] += preds[ind]
             self.clip_count[vid_id] += 1
 
+    def get_current_accuracy(self, ks=(1, 5)):
+        num_topks_correct = metrics.topks_correct(
+            self.video_preds, self.video_labels, ks
+        )
+        topks = [(x / self.video_preds.size(0)) * 100.0 for x in num_topks_correct]
+        assert len({len(ks), len(topks)}) == 1
+
+        return topks
+
     def log_iter_stats(self, cur_iter):
         """
         Log the stats.
@@ -281,10 +290,14 @@ class TestMeter(object):
 
         eta_sec = eta_sec * (self.overall_iters - cur_iter)
         eta = str(datetime.timedelta(seconds=int(eta_sec)))
+        top1_acc, top5_acc = self.get_current_accuracy()
+
         stats = {
             "split": "test_iter",
             "cur_iter": "{}".format(cur_iter + 1),
             "eta": eta,
+            "top1_acc": "{:.{prec}f}".format(top1_acc, prec=2),
+            "top5_acc": "{:.{prec}f}".format(top5_acc, prec=2),
             "time_diff": self.iter_timer.seconds(),
         }
         logging.log_json_stats(stats)

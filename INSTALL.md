@@ -54,7 +54,10 @@ cd pyaction
 python setup.py build develop
 ```
 
-## 3. Project Training
+## 3. Dataset Preparation
+Prepare the dataset for training and evaluation in [DATASET.md](DATASET.md)
+
+## 4. Project Training
 
 We use folder-based develop pipeline. We only need to focus the model design within the project folder.
 All experiments are stored into the `workspace`.
@@ -67,7 +70,7 @@ pyaction_run
 pyaction_run TRAIN.ENABLE False
 ```
 
-## 4. Develop
+## 5. Develop
 
 ### Code Style Check
 You need to excute the following to allow the code style check before each `git commit`
