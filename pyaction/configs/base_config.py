@@ -157,7 +157,7 @@ _config_dict = dict(
     ),
     DATA_LOADER=dict(
         # Number of data loader workers per training process.
-        NUM_WORKERS=8,
+        NUM_WORKERS=2,
         # Load data to pinned host memory.
         PIN_MEMORY=True,
         # Enable multi thread decoding.

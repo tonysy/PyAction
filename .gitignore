@@ -3,6 +3,12 @@
 .vscode/
 *.csv
 workspace/
+
+data/ava/annotations
+data/ava/ava_annotations
+data/ava/frame_lists
+data/ava/frames
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

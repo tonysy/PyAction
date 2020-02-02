@@ -88,7 +88,18 @@ class AVAMeter(object):
         if (cur_iter + 1) % self.cfg.LOG_PERIOD != 0:
             return
 
-        eta_sec = self.iter_timer.seconds() * (self.overall_iters - cur_iter)
+        self.iter_timer._past_durations.append(self.iter_timer.seconds())
+        try:
+            eta_sec = mean(self.iter_timer._past_durations[-500:])
+        except Exception as e:
+            print(e)
+            eta_sec = mean(self.iter_timer._past_durations)
+
+        # eta_sec = eta_sec * (
+        #     self.MAX_EPOCH - (cur_epoch * self.epoch_iters + cur_iter + 1)
+        # )
+
+        eta_sec = eta_sec * (self.overall_iters - cur_iter)
         eta = str(datetime.timedelta(seconds=int(eta_sec)))
         if self.mode == "train":
             stats = {
@@ -97,10 +108,15 @@ class AVAMeter(object):
                 "cur_iter": "{}".format(cur_iter + 1),
                 "eta": eta,
                 "time_diff": self.iter_timer.seconds(),
+                "time_data": self.iter_timer.data_time,
+                "time_forward": self.iter_timer.forward_time,
+                "time_loss": self.iter_timer.loss_time,
+                "time_backward": self.iter_timer.backward_time,
                 "mode": self.mode,
                 "loss": self.loss.get_win_median(),
                 "lr": self.lr,
             }
+
         elif self.mode == "val":
             stats = {
                 "_type": "{}_iter".format(self.mode),
@@ -134,6 +150,30 @@ class AVAMeter(object):
         Stop to record time.
         """
         self.iter_timer.pause()
+
+    def iter_data_toc(self):
+        """
+        Stop to record data processing time
+        """
+        self.iter_timer.data_toc()
+
+    def iter_forward_toc(self):
+        """
+        Stop to record network forward time
+        """
+        self.iter_timer.forward_toc()
+
+    def iter_loss_toc(self):
+        """
+        Stop to record network forward time
+        """
+        self.iter_timer.loss_toc()
+
+    def iter_backward_toc(self):
+        """
+        Stop to record network backward time
+        """
+        self.iter_timer.backward_toc()
 
     def reset(self):
         """
