@@ -6,7 +6,7 @@ import random
 import torch
 import torch.utils.data
 
-import slowfast.utils.logging as logging
+import pyaction.utils.logging as logging
 
 from . import decoder as decoder
 from . import transform as transform
