@@ -69,7 +69,6 @@ def train_epoch(train_loader, model, optimizer, train_meter, cur_epoch, cfg):
         if cfg.DETECTION.ENABLE:
             # Compute the predictions.
             preds = model(inputs, meta["boxes"])
-
         else:
             # Perform the forward pass.
             preds = model(inputs)
@@ -265,8 +264,8 @@ def train(cfg):
     # model = model_builder.build_model(cfg)
     model = build_model(cfg)
     if du.is_master_proc():
-        misc.log_model_info(model)
-
+        misc.log_model_info(model, cfg, is_train=True)
+        # pass
     # Construct the optimizer.
     optimizer = optim.construct_optimizer(model, cfg)
 

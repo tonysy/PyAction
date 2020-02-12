@@ -134,7 +134,7 @@ def test(cfg):
     # model = model_builder.build_model(cfg)
     model = build_model(cfg)
     if du.is_master_proc():
-        misc.log_model_info(model)
+        misc.log_model_info(model, cfg, is_train=False)
 
     # Load a checkpoint to test if applicable.
     if cfg.TEST.CHECKPOINT_FILE_PATH != "":
