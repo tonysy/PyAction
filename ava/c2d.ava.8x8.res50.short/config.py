@@ -1,0 +1,117 @@
+import os
+import os.path as osp
+
+import pyaction
+from pyaction.configs.base_config import BaseConfig
+
+_config_dict = dict(
+    BN=dict(
+        USE_PRECISE_STATS=False, NUM_BATCHES_PRECISE=200, MOMENTUM=0.1, WEIGHT_DECAY=0.0,
+    ),
+    TRAIN=dict(
+        DATASET="ava", 
+        BATCH_SIZE=64, 
+        EVAL_PERIOD=5, 
+        CHECKPOINT_PERIOD=1
+    ),
+    DATA=dict(
+        PATH_TO_DATA_DIR=osp.join(
+            "/", *osp.realpath(pyaction.__file__).split("/")[:-2], "data/kinetics"
+        ),
+        NUM_FRAMES=4,
+        SAMPLING_RATE=16,
+        INPUT_CHANNEL_NUM=[3],
+    ),
+    AVA=dict(
+        FRAME_DIR=osp.join(
+            "/", *osp.realpath(pyaction.__file__).split("/")[:-2], "data/ava/frames"
+        ),
+        FRAME_LIST_DIR = (
+            osp.join(
+            "/", *osp.realpath(pyaction.__file__).split("/")[:-2], "data/ava/frame_lists")
+        ),
+        ANNOTATION_DIR = (
+            osp.join(
+            "/", *osp.realpath(pyaction.__file__).split("/")[:-2], "data/ava/annotations")
+        ),
+        TRAIN_LISTS = ["train.csv"],
+        TEST_LISTS = ["val.csv"],
+        TRAIN_GT_BOX_LISTS = ["ava_train_v2.2.csv"],
+        DETECTION_SCORE_THRESH=0.9,
+        TRAIN_PREDICT_BOX_LISTS=[
+            "ava_train_v2.2.csv",
+            "person_box_67091280_iou90/ava_detection_train_boxes_and_labels_include_negative_v2.2.csv"
+        ],
+        TEST_PREDICT_BOX_LISTS=[
+            "person_box_67091280_iou90/ava_detection_val_boxes_and_labels.csv"
+        ],
+        BGR = False,
+        TRAIN_USE_COLOR_AUGMENTATION = False,
+        TRAIN_PCA_JITTER_ONLY = True,
+        TRAIN_PCA_EIGVAL = [0.225, 0.224, 0.229],
+        TRAIN_PCA_EIGVEC = [
+            [-0.5675, 0.7192, 0.4009],
+            [-0.5808, -0.0045, -0.8140],
+            [-0.5836, -0.6948, 0.4203],
+        ],
+        TEST_FORCE_FLIP = False,
+        FULL_TEST_ON_VAL = False,
+        LABEL_MAP_FILE = "ava_action_list_v2.2_for_activitynet_2019.pbtxt",
+        EXCLUSION_FILE = "ava_val_excluded_timestamps_v2.2.csv",
+        GROUNDTRUTH_FILE = "ava_val_v2.2.csv",
+        IMG_PROC_BACKEND = "cv2",
+    ),
+    DETECTION=dict(
+        ENABLE = True,
+        # Aligned version of RoI. More details can be found at slowfast/models/head_helper.py
+        ALIGNED = True,
+        # Spatial scale factor.
+        SPATIAL_SCALE_FACTOR = 16,
+        # RoI tranformation resolution.
+        ROI_XFORM_RESOLUTION = 7,
+    ),
+    RESNET=dict(
+        ZERO_INIT_FINAL_BN=True, DEPTH=50, NUM_BLOCK_TEMP_KERNEL=[[3], [4], [6], [3]],
+    ),
+    SOLVER=dict(
+        BASE_LR=0.1, 
+        LR_POLICY="steps_with_relative_lrs",
+        STEPS = [0, 10, 5, 5],
+        LRS = [1, 0.1, 0.01, 0.001],
+        MAX_EPOCH=20, 
+        MOMENTUM=0.9,
+        WEIGHT_DECAY=1e-7,
+        WARMUP_EPOCHS=5,
+        WARMUP_START_LR=0.000125,
+        OPTIMIZING_METHOD='sgd'),
+    MODEL=dict(
+        ARCH="slowonly",
+        LOSS_FUNC='bce', 
+        NUM_CLASSES=80,),
+    TEST=dict(
+        ENABLE=True, 
+        DATASET="ava", 
+        BATCH_SIZE=8),
+    DATA_LOADER=dict(
+        NUM_WORKERS=2,
+        PIN_MEMORY=True,
+        # ENABLE_MULTI_THREAD_DECODE=True
+    ),
+    NUM_GPUS=4,
+    NUM_SHARDS=1,
+    RNG_SEED=0,
+    OUTPUT_DIR=osp.join(
+        os.getenv("PYACTION_OUTPUT"),
+        "model_logs",
+        *osp.realpath(__file__).split("/")[-3:-1],
+    ),
+)
+
+
+class KineticsConfig(BaseConfig):
+    def __init__(self):
+        super(KineticsConfig, self).__init__()
+        self._register_configuration(_config_dict)
+
+
+config = KineticsConfig()
