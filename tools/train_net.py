@@ -268,7 +268,13 @@ def train(cfg):
     # model = model_builder.build_model(cfg)
     model = build_model(cfg)
     if du.is_master_proc():
-        misc.log_model_info(model, cfg, is_train=True, writer=writer)
+        print(type(model))
+        if cfg.NUM_GPUS > 1:
+            model_plain = model.module
+        else:
+            model_plain = model
+
+        misc.log_model_info(model_plain, cfg, is_train=True, writer=writer)
         # writer.add_graph(model, )
         # pass
     # Construct the optimizer.
