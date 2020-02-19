@@ -12,6 +12,7 @@ import numpy as np
 import torch
 from fvcore.nn.precise_bn import get_bn_modules, update_bn_stats
 
+from torch.utils.tensorboard import SummaryWriter
 import pyaction.models.losses as losses
 import pyaction.models.optimizer as optim
 import pyaction.utils.checkpoint as cu
@@ -27,7 +28,7 @@ from pyaction.utils.meters import AVAMeter, TrainMeter, ValMeter
 from net import build_model
 
 
-def train_epoch(train_loader, model, optimizer, train_meter, cur_epoch, cfg):
+def train_epoch(train_loader, model, optimizer, train_meter, cur_epoch, cfg, writer):
     """
     Perform the video training for one epoch.
     Args:
@@ -39,6 +40,7 @@ def train_epoch(train_loader, model, optimizer, train_meter, cur_epoch, cfg):
         cur_epoch (int): current epoch of training.
         cfg (CfgNode): configs. Details can be found in
             slowfast/config/defaults.py
+        writer (tensorboard summarywriter): writer to storage the scalars for curve
     """
     # Enable train mode.
     model.train()
@@ -127,16 +129,16 @@ def train_epoch(train_loader, model, optimizer, train_meter, cur_epoch, cfg):
                 top1_err, top5_err, loss, lr, inputs[0].size(0) * cfg.NUM_GPUS
             )
 
-        train_meter.log_iter_stats(cur_epoch, cur_iter)
+        train_meter.log_iter_stats(cur_epoch, cur_iter, writer)
         train_meter.iter_tic()
 
     # Log epoch stats.
-    train_meter.log_epoch_stats(cur_epoch)
+    train_meter.log_epoch_stats(cur_epoch, writer)
     train_meter.reset()
 
 
 @torch.no_grad()
-def eval_epoch(val_loader, model, val_meter, cur_epoch, cfg):
+def eval_epoch(val_loader, model, val_meter, cur_epoch, cfg, writer):
     """
     Evaluate the model on the val set.
     Args:
@@ -146,6 +148,7 @@ def eval_epoch(val_loader, model, val_meter, cur_epoch, cfg):
         cur_epoch (int): number of the current epoch of training.
         cfg (CfgNode): configs. Details can be found in
             slowfast/config/defaults.py
+        writer (tensorboard summarywriter): writer to storage the scalars for curve
     """
 
     # Evaluation mode enabled. The running stats would not be updated.
@@ -207,7 +210,7 @@ def eval_epoch(val_loader, model, val_meter, cur_epoch, cfg):
         val_meter.iter_tic()
 
     # Log epoch stats.
-    val_meter.log_epoch_stats(cur_epoch)
+    val_meter.log_epoch_stats(cur_epoch, writer)
     val_meter.reset()
 
 
@@ -246,6 +249,7 @@ def train(cfg):
 
     # Setup logging format.
     logger = logging.setup_logging(os.path.join(cfg.OUTPUT_DIR, "train_log.txt"))
+    writer = SummaryWriter(cfg.OUTPUT_DIR)  # , **kwargs)
 
     logger.info("Running with full config:\n{}".format(cfg))
     base_config = cfg.__class__.__base__()
@@ -264,7 +268,8 @@ def train(cfg):
     # model = model_builder.build_model(cfg)
     model = build_model(cfg)
     if du.is_master_proc():
-        misc.log_model_info(model, cfg, is_train=True)
+        misc.log_model_info(model, cfg, is_train=True, writer=writer)
+        # writer.add_graph(model, )
         # pass
     # Construct the optimizer.
     optimizer = optim.construct_optimizer(model, cfg)
@@ -310,7 +315,7 @@ def train(cfg):
         # Shuffle the dataset.
         loader.shuffle_dataset(train_loader, cur_epoch)
         # Train for one epoch.
-        train_epoch(train_loader, model, optimizer, train_meter, cur_epoch, cfg)
+        train_epoch(train_loader, model, optimizer, train_meter, cur_epoch, cfg, writer)
 
         # Compute precise BN stats.
         if cfg.BN.USE_PRECISE_STATS and len(get_bn_modules(model)) > 0:
@@ -323,4 +328,4 @@ def train(cfg):
             cu.save_checkpoint(cfg.OUTPUT_DIR, model, optimizer, cur_epoch, cfg)
         # Evaluate the model on validation set.
         if misc.is_eval_epoch(cfg, cur_epoch):
-            eval_epoch(val_loader, model, val_meter, cur_epoch, cfg)
+            eval_epoch(val_loader, model, val_meter, cur_epoch, cfg, writer)

@@ -12,6 +12,7 @@ import torch
 from statistics import mean
 
 from pyaction.utils.timer import Timer
+import pyaction.utils.distributed as du
 import pyaction.datasets.ava_helper as ava_helper
 import pyaction.utils.logging as logging
 import pyaction.utils.metrics as metrics
@@ -518,12 +519,13 @@ class TrainMeter(object):
         self.loss_total += loss * mb_size
         self.num_samples += mb_size
 
-    def log_iter_stats(self, cur_epoch, cur_iter):
+    def log_iter_stats(self, cur_epoch, cur_iter, writer):
         """
         log the stats of the current iteration.
         Args:
             cur_epoch (int): the number of current epoch.
             cur_iter (int): the number of current iteration.
+            writer (tensorboard summarywriter): writer to storage the scalars for curve.
         """
         if (cur_iter + 1) % self._cfg.LOG_PERIOD != 0:
             return
@@ -572,11 +574,30 @@ class TrainMeter(object):
         }
         logging.log_json_stats(stats)
 
-    def log_epoch_stats(self, cur_epoch):
+        if du.is_master_proc():
+            # Add metrics into tensorboard
+            iter_idx = cur_epoch * self.epoch_iters + cur_iter + 1
+            # Time
+            writer.add_scalar("Time/train_diff", stats["time_diff"], iter_idx)
+            writer.add_scalar("Time/train_loss", stats["time_loss"], iter_idx)
+            writer.add_scalar("Time/train_forward", stats["time_forward"], iter_idx)
+            writer.add_scalar("Time/train_backward", stats["time_backward"], iter_idx)
+            # writer.add_scalar("Time/train_eta", stats['eta'], iter_idx)
+            # Error
+            writer.add_scalar("Error/train_top1", stats["top1_err"], iter_idx)
+            writer.add_scalar("Error/train_top5", stats["top5_err"], iter_idx)
+            # LR
+            writer.add_scalar("Utils/train_lr", stats["lr"], iter_idx)
+            writer.add_scalar("Utils/train_mem", stats["mem"], iter_idx)
+            # Loss
+            writer.add_scalar("Loss/train_loss", stats["loss"], iter_idx)
+
+    def log_epoch_stats(self, cur_epoch, writer):
         """
         Log the stats of the current epoch.
         Args:
             cur_epoch (int): the number of current epoch.
+            writer (tensorboard summarywriter): writer to storage the scalars for curve
         """
         eta_sec = self.iter_timer.seconds() * (
             self.MAX_EPOCH - (cur_epoch + 1) * self.epoch_iters
@@ -598,6 +619,13 @@ class TrainMeter(object):
             "mem": int(np.ceil(mem_usage)),
         }
         logging.log_json_stats(stats)
+
+        if du.is_master_proc():
+            # Add tensorboard metrix for visualization
+            writer.add_scalar("Epoch/train_loss", stats["loss"], cur_epoch)
+
+            writer.add_scalar("Epoch/train_top1_err", stats["top1_err"], cur_epoch)
+            writer.add_scalar("Epoch/train_top5_err", stats["top5_err"], cur_epoch)
 
 
 class ValMeter(object):
@@ -686,11 +714,12 @@ class ValMeter(object):
         }
         logging.log_json_stats(stats)
 
-    def log_epoch_stats(self, cur_epoch):
+    def log_epoch_stats(self, cur_epoch, writer):
         """
         Log the stats of the current epoch.
         Args:
             cur_epoch (int): the number of current epoch.
+            writer (tensorboard summarywriter): writer to storage the scalars for curve
         """
         top1_err = self.num_top1_mis / self.num_samples
         top5_err = self.num_top5_mis / self.num_samples
@@ -708,3 +737,7 @@ class ValMeter(object):
             "mem": int(np.ceil(mem_usage)),
         }
         logging.log_json_stats(stats)
+
+        if du.is_master_proc():
+            writer.add_scalar("Epoch/val_top1_err", stats["top1_err"], cur_epoch)
+            writer.add_scalar("Epoch/val_top5_err", stats["top5_err"], cur_epoch)

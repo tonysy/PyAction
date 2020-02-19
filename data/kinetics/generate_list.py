@@ -2,8 +2,38 @@ import json
 import os
 from tqdm import tqdm
 
-dataset_path_prefix = "/public/sist/home/hexm/Datasets/"
+import argparse
 
+
+def parse_args():
+    """
+    Parse the following arguments for the data processing pipeline.
+    Args:
+
+        path_prefix (str): initialization method to launch the job with multiple
+            devices. Options includes TCP or shared file-system for
+            initialization. details can be find in
+            https://pytorch.org/docs/stable/distributed.html#tcp-initialization
+        """
+    parser = argparse.ArgumentParser(
+        description="Provide PyAction Kinetics Data Processing."
+    )
+
+    parser.add_argument(
+        "--path-prefix",
+        help="Folder of Kinetics dataset",
+        default="/public/sist/home/hexm/Datasets/",
+        type=str,
+    )
+
+    # if len(sys.argv) == 1:
+    #     parser.print_help()
+    return parser.parse_args()
+
+
+# dataset_path_prefix = "/public/sist/home/hexm/Datasets/"
+args = parse_args()
+dataset_path_prefix = args.path_prefix
 
 data_path = os.path.join(
     dataset_path_prefix, "kinetics-400/raw-part/compress/train_256"

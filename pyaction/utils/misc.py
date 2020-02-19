@@ -44,7 +44,7 @@ def gpu_mem_usage():
     return mem_usage_bytes / (1024 * 1024)
 
 
-def get_flop_stats(model, cfg, is_train):
+def get_flop_stats(model, cfg, is_train, writer):
     """
     Compute the gflops for the current model given the config.
     Args:
@@ -79,25 +79,38 @@ def get_flop_stats(model, cfg, is_train):
     ]
     flop_inputs = pack_pathway_output(cfg, input_tensors)
 
-    if cfg.DETECTION.ENABLE:
-        boxes_tensor = torch.rand(2, 5)
-
     for i in range(len(flop_inputs)):
         flop_inputs[i] = flop_inputs[i].unsqueeze(0).cuda(non_blocking=True)
 
+    # If detection is enabled, count flops for one proposal.
     if cfg.DETECTION.ENABLE:
-        # For AVA action detection model
-        gflop_dict = flop_count(
-            model, (flop_inputs, boxes_tensor.cuda()), whitelist_ops
-        )
+        bbox = torch.tensor([[0, 0, 1.0, 0, 1.0]])
+        bbox = bbox.cuda()
+        inputs = (flop_inputs, bbox)
     else:
-        # For action classification model
-        gflop_dict = flop_count(model, (flop_inputs,), whitelist_ops)
+        inputs = (flop_inputs,)
+
+    gflop_dict = flop_count(model, inputs, whitelist_ops)
     gflops = sum(gflop_dict.values())
+    if writer is not None:
+        writer.add_graph(model, inputs)
     return gflops
 
+    # if cfg.DETECTION.ENABLE:
+    #     # For AVA action detection model
+    #     gflop_dict = flop_count(
+    #         model, (flop_inputs, boxes_tensor.cuda()), whitelist_ops
+    #     )
+    #     if writer is not None:
+    #         writer.add_graph(model, (flop_inputs, boxes_tensor.cuda()))
+    # else:
+    #     # For action classification model
+    #     gflop_dict = flop_count(model, (flop_inputs,), whitelist_ops)
+    # gflops = sum(gflop_dict.values())
+    # return gflops
 
-def log_model_info(model, cfg, is_train=True):
+
+def log_model_info(model, cfg, is_train=True, writer=None):
     """
     Log info, includes number of parameters, gpu usage and gflops.
     Args:
@@ -110,7 +123,9 @@ def log_model_info(model, cfg, is_train=True):
     logger.info("Model:\n{}".format(model))
     logger.info("Params: {:,}".format(params_count(model)))
     logger.info("Mem: {:,} MB".format(gpu_mem_usage()))
-    logger.info("FLOPs: {:,} GFLOPs".format(get_flop_stats(model, cfg, is_train)))
+    logger.info(
+        "FLOPs: {:,} GFLOPs".format(get_flop_stats(model, cfg, is_train, writer))
+    )
     logger.info("nvidia-smi")
     os.system("nvidia-smi")
 
