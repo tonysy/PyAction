@@ -249,7 +249,6 @@ def train(cfg):
 
     # Setup logging format.
     logger = logging.setup_logging(os.path.join(cfg.OUTPUT_DIR, "train_log.txt"))
-    writer = SummaryWriter(cfg.OUTPUT_DIR)  # , **kwargs)
 
     logger.info("Running with full config:\n{}".format(cfg))
     base_config = cfg.__class__.__base__()
@@ -273,10 +272,12 @@ def train(cfg):
             model_plain = model.module
         else:
             model_plain = model
+        writer = SummaryWriter(cfg.OUTPUT_DIR)  # , **kwargs)
 
         misc.log_model_info(model_plain, cfg, is_train=True, writer=writer)
-        # writer.add_graph(model, )
-        # pass
+    else:
+        writer = None
+
     # Construct the optimizer.
     optimizer = optim.construct_optimizer(model, cfg)
 
