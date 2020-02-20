@@ -49,6 +49,7 @@ _config_dict = dict(
         ],
         INSTANTIATION="softmax",
         CONFIG=dict(
+            channel_stride=4,
             mode='asymmetric',
             # norm_func = F.normalize,
             latent_nonlocal = True,

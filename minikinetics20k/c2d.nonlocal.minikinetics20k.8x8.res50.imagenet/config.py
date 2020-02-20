@@ -9,16 +9,17 @@ _config_dict = dict(
         USE_PRECISE_STATS=True, NUM_BATCHES_PRECISE=200, MOMENTUM=0.1, WEIGHT_DECAY=0.0,
     ),
     TRAIN=dict(
-        DATASET="kinetics", 
-        BATCH_SIZE=64, 
-        EVAL_PERIOD=10, 
+        DATASET="kinetics",
+        BATCH_SIZE=64,
+        EVAL_PERIOD=10,
         CHECKPOINT_PERIOD=1,
         CHECKPOINT_FILE_PATH=osp.join(
             "/",
             *osp.realpath(pyaction.__file__).split("/")[:-2],
             "model_zoo/R50_IN1K.pyth",
         ),
-        CHECKPOINT_INFLATE=True,),
+        CHECKPOINT_INFLATE=True,
+    ),
     DATA=dict(
         PATH_TO_DATA_DIR=osp.join(
             "/", *osp.realpath(pyaction.__file__).split("/")[:-2], "data/minikinetics20k"
@@ -30,35 +31,10 @@ _config_dict = dict(
     RESNET=dict(
         ZERO_INIT_FINAL_BN=True, DEPTH=50, NUM_BLOCK_TEMP_KERNEL=[[3], [4], [6], [3]],
     ),
-    LATENTGNN3D=dict(
-        LOCATION=[
-            [[]], 
-            [[1, 3]], 
-            [[1, 3, 5]], 
-            [[]]],
+    NONLOCAL=dict(
+        LOCATION=[[[]], [[1, 3]], [[1, 3, 5]], [[]]],
         GROUP=[[1], [1], [1], [1]],
-        NUM_NODES=[
-            # Res2
-            [0],
-            # Res3
-            [50],
-            # Res4
-            [50],
-            # Res5
-            [0],
-        ],
         INSTANTIATION="softmax",
-        CONFIG=dict(
-            mode='asymmetric',
-            # norm_func = F.normalize,
-            latent_nonlocal = True,
-            norm_type = 'batchnorm',
-            latent_value_transform = True,
-            latent_skip = True,
-            zero_init_final_norm=True,
-            norm_eps=1e-5,
-            norm_momentum=0.1,
-        )
     ),
     SOLVER=dict(
         BASE_LR=0.01,
@@ -70,7 +46,7 @@ _config_dict = dict(
     MODEL=dict(ARCH="c2d", NUM_CLASSES=200,),
     TEST=dict(ENABLE=True, DATASET="kinetics", BATCH_SIZE=64),
     DATA_LOADER=dict(
-        NUM_WORKERS=4,
+        NUM_WORKERS=8,
         PIN_MEMORY=True,
         # ENABLE_MULTI_THREAD_DECODE=True
     ),
