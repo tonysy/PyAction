@@ -78,12 +78,13 @@ class AVAMeter(object):
 
         _, self.video_idx_to_name = ava_helper.load_image_lists(cfg, mode == "train")
 
-    def log_iter_stats(self, cur_epoch, cur_iter):
+    def log_iter_stats(self, cur_epoch, cur_iter, writer):
         """
         Log the stats.
         Args:
             cur_epoch (int): the current epoch.
             cur_iter (int): the current iteration.
+            writer (tensorboard summarywriter): writer to storage the scalars for curve.
         """
 
         if (cur_iter + 1) % self.cfg.LOG_PERIOD != 0:
@@ -117,6 +118,21 @@ class AVAMeter(object):
                 "loss": self.loss.get_win_median(),
                 "lr": self.lr,
             }
+            if du.is_master_proc():
+                # Iter
+                iter_idx = cur_epoch * self.epoch_iters + cur_iter + 1
+
+                # Time:
+                writer.add_scalar("Time/train_diff", stats["time_diff"], iter_idx)
+                writer.add_scalar("Time/train_loss", stats["time_loss"], iter_idx)
+                writer.add_scalar("Time/train_forward", stats["time_forward"], iter_idx)
+                writer.add_scalar(
+                    "Time/train_backward", stats["time_backward"], iter_idx
+                )
+                # LR
+                writer.add_scalar("Utils/train_lr", stats["lr"], iter_idx)
+                # Loss
+                writer.add_scalar("Loss/train_loss", stats["loss"], iter_idx)
 
         elif self.mode == "val":
             stats = {
@@ -127,6 +143,13 @@ class AVAMeter(object):
                 "time_diff": self.iter_timer.seconds(),
                 "mode": self.mode,
             }
+            if du.is_master_proc():
+                # Iter
+                iter_idx = cur_epoch * self.epoch_iters + cur_iter + 1
+
+                # Time:
+                writer.add_scalar("Time/val_diff", stats["time_diff"], iter_idx)
+
         elif self.mode == "test":
             stats = {
                 "_type": "{}_iter".format(self.mode),
@@ -135,6 +158,13 @@ class AVAMeter(object):
                 "time_diff": self.iter_timer.seconds(),
                 "mode": self.mode,
             }
+
+            if du.is_master_proc():
+                # Iter
+                iter_idx = cur_iter + 1
+                # Time:
+                writer.add_scalar("Time/test_diff", stats["time_diff"], iter_idx)
+
         else:
             raise NotImplementedError("Unknown mode: {}".format(self.mode))
 
@@ -227,16 +257,18 @@ class AVAMeter(object):
             self.categories,
             groundtruth=groundtruth,
             video_idx_to_name=self.video_idx_to_name,
+            out_folder=self.cfg.OUTPUT_DIR,
         )
         if log:
             stats = {"mode": self.mode, "map": self.full_map}
             logging.log_json_stats(stats)
 
-    def log_epoch_stats(self, cur_epoch):
+    def log_epoch_stats(self, cur_epoch, writer):
         """
         Log the stats of the current epoch.
         Args:
             cur_epoch (int): the number of current epoch.
+            writer (tensorboard summarywriter): writer to storage the scalars for curve
         """
         if self.mode in ["val", "test"]:
             self.finalize_metrics(log=False)
@@ -247,6 +279,11 @@ class AVAMeter(object):
                 "map": self.full_map,
             }
             logging.log_json_stats(stats)
+            if du.is_master_proc():
+                # Add tensorboard metrix for visualization
+                writer.add_scalar(
+                    "Metric/{}_mAP".format(self.mode), self.full_map, cur_epoch + 1
+                )
 
 
 class TestMeter(object):
@@ -622,10 +659,10 @@ class TrainMeter(object):
 
         if du.is_master_proc():
             # Add tensorboard metrix for visualization
-            writer.add_scalar("Epoch/train_loss", stats["loss"], cur_epoch)
+            writer.add_scalar("Epoch/train_loss", stats["loss"], cur_epoch + 1)
 
-            writer.add_scalar("Epoch/train_top1_err", stats["top1_err"], cur_epoch)
-            writer.add_scalar("Epoch/train_top5_err", stats["top5_err"], cur_epoch)
+            writer.add_scalar("Epoch/train_top1_err", stats["top1_err"], cur_epoch + 1)
+            writer.add_scalar("Epoch/train_top5_err", stats["top5_err"], cur_epoch + 1)
 
 
 class ValMeter(object):

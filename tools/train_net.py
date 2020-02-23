@@ -267,7 +267,7 @@ def train(cfg):
     # model = model_builder.build_model(cfg)
     model = build_model(cfg)
     if du.is_master_proc():
-        print(type(model))
+        # print(type(model))
         if cfg.NUM_GPUS > 1:
             model_plain = model.module
         else:

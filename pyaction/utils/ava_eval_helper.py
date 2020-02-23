@@ -26,7 +26,9 @@
 
 from __future__ import absolute_import, division, print_function, unicode_literals
 import csv
+import os
 import logging
+import json
 import numpy as np
 import pprint
 import time
@@ -135,6 +137,7 @@ def evaluate_ava(
     groundtruth=None,
     video_idx_to_name=None,
     name="latest",
+    out_folder="",
 ):
     """Run AVA evaluation given numpy arrays."""
 
@@ -151,12 +154,16 @@ def evaluate_ava(
     logger.info("Evaluating with %d unique GT frames." % len(groundtruth[0]))
     logger.info("Evaluating with %d unique detection frames" % len(detections[0]))
 
-    write_results(detections, "detections_%s.csv" % name)
-    write_results(groundtruth, "groundtruth_%s.csv" % name)
+    write_results(detections, os.path.join(out_folder, "detections_%s.csv" % name))
+    write_results(groundtruth, os.path.join(out_folder, "groundtruth_%s.csv" % name))
 
     results = run_evaluation(categories, groundtruth, detections, excluded_keys)
 
+    logger.info("\n" + pprint.pformat(results, indent=4))
     logger.info("AVA eval done in %f seconds." % (time.time() - eval_start))
+    with open(os.path.join(out_folder, "mAP_results.json"), "w") as f:
+        json.dump(results, f)
+
     return results["PascalBoxes_Precision/mAP@0.5IOU"]
 
 
@@ -224,8 +231,6 @@ def run_evaluation(categories, groundtruth, detections, excluded_keys, verbose=T
         pred_keys.append(image_key)
 
     metrics = pascal_evaluator.evaluate()
-
-    pprint.pprint(metrics, indent=2)
     return metrics
 
 
