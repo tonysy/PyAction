@@ -6,13 +6,22 @@ from pyaction.configs.base_config import BaseConfig
 
 _config_dict = dict(
     BN=dict(
-        USE_PRECISE_STATS=False, NUM_BATCHES_PRECISE=200, MOMENTUM=0.1, WEIGHT_DECAY=0.0,
+        USE_PRECISE_STATS=False, 
+        NUM_BATCHES_PRECISE=200, 
+        MOMENTUM=0.1, 
+        WEIGHT_DECAY=0.0,
     ),
     TRAIN=dict(
         DATASET="ava", 
         BATCH_SIZE=64, 
         EVAL_PERIOD=5, 
-        CHECKPOINT_PERIOD=1
+        CHECKPOINT_PERIOD=1,
+        CHECKPOINT_FILE_PATH=osp.join(
+            "/",
+            *osp.realpath(pyaction.__file__).split("/")[:-2],
+            "model_zoo/ava/pretrain/C2D_8x8_R50.pkl",
+        ),
+        CHECKPOINT_TYPE='caffe2'
     ),
     DATA=dict(
         PATH_TO_DATA_DIR=osp.join(
@@ -23,6 +32,13 @@ _config_dict = dict(
         INPUT_CHANNEL_NUM=[3],
     ),
     AVA=dict(
+        ANNOTATION_DIR = (
+            osp.join(
+            "/", *osp.realpath(pyaction.__file__).split("/")[:-2], "data/ava/annotations/")
+        ),
+        BGR = False,
+        DETECTION_SCORE_THRESH=0.8,
+        EXCLUSION_FILE = "ava_val_excluded_timestamps_v2.2.csv",
         FRAME_DIR=osp.join(
             "/", *osp.realpath(pyaction.__file__).split("/")[:-2], "data/ava/frames"
         ),
@@ -30,36 +46,29 @@ _config_dict = dict(
             osp.join(
             "/", *osp.realpath(pyaction.__file__).split("/")[:-2], "data/ava/frame_lists")
         ),
-        ANNOTATION_DIR = (
-            osp.join(
-            "/", *osp.realpath(pyaction.__file__).split("/")[:-2], "data/ava/annotations")
-        ),
-        TRAIN_LISTS = ["train.csv"],
+        FULL_TEST_ON_VAL = False,
+        GROUNDTRUTH_FILE = "ava_val_v2.2.csv",
+        IMG_PROC_BACKEND = "cv2",
+        LABEL_MAP_FILE = "ava_action_list_v2.2_for_activitynet_2019.pbtxt",
+        TEST_FORCE_FLIP = False,
         TEST_LISTS = ["val.csv"],
-        TRAIN_GT_BOX_LISTS = ["ava_train_v2.2.csv"],
-        DETECTION_SCORE_THRESH=0.9,
-        TRAIN_PREDICT_BOX_LISTS=[
-            "ava_train_v2.2.csv",
-            "person_box_67091280_iou90/ava_detection_train_boxes_and_labels_include_negative_v2.2.csv"
-        ],
         TEST_PREDICT_BOX_LISTS=[
-            "person_box_67091280_iou90/ava_detection_val_boxes_and_labels.csv"
+            "/person_box_67091280_iou90/ava_detection_val_boxes_and_labels.csv"
         ],
-        BGR = False,
-        TRAIN_USE_COLOR_AUGMENTATION = False,
-        TRAIN_PCA_JITTER_ONLY = True,
+        TRAIN_GT_BOX_LISTS = ["ava_train_v2.2.csv"],
+        TRAIN_LISTS = ["train.csv"],
         TRAIN_PCA_EIGVAL = [0.225, 0.224, 0.229],
         TRAIN_PCA_EIGVEC = [
             [-0.5675, 0.7192, 0.4009],
             [-0.5808, -0.0045, -0.8140],
             [-0.5836, -0.6948, 0.4203],
         ],
-        TEST_FORCE_FLIP = False,
-        FULL_TEST_ON_VAL = False,
-        LABEL_MAP_FILE = "ava_action_list_v2.2_for_activitynet_2019.pbtxt",
-        EXCLUSION_FILE = "ava_val_excluded_timestamps_v2.2.csv",
-        GROUNDTRUTH_FILE = "ava_val_v2.2.csv",
-        IMG_PROC_BACKEND = "cv2",
+        TRAIN_PCA_JITTER_ONLY = True,
+        TRAIN_PREDICT_BOX_LISTS=[
+            "ava_train_v2.2.csv",
+            "person_box_67091280_iou90/ava_detection_train_boxes_and_labels_include_negative_v2.2.csv"
+        ],
+        TRAIN_USE_COLOR_AUGMENTATION = False,
     ),
     DETECTION=dict(
         ENABLE = True,
@@ -71,7 +80,9 @@ _config_dict = dict(
         ROI_XFORM_RESOLUTION = 7,
     ),
     RESNET=dict(
-        ZERO_INIT_FINAL_BN=True, DEPTH=50, NUM_BLOCK_TEMP_KERNEL=[[3], [4], [6], [3]],
+        ZERO_INIT_FINAL_BN=True, 
+        DEPTH=50, 
+        NUM_BLOCK_TEMP_KERNEL=[[3], [4], [6], [3]],
     ),
     SOLVER=dict(
         BASE_LR=0.1, 
@@ -91,9 +102,9 @@ _config_dict = dict(
     TEST=dict(
         ENABLE=True, 
         DATASET="ava", 
-        BATCH_SIZE=8),
+        BATCH_SIZE=4),
     DATA_LOADER=dict(
-        NUM_WORKERS=2,
+        NUM_WORKERS=4,
         PIN_MEMORY=True,
         # ENABLE_MULTI_THREAD_DECODE=True
     ),
