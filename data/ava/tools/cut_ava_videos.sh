@@ -1,5 +1,7 @@
-IN_DATA_DIR="/public/sist/home/hexm/Datasets/AVA_dataset/videos"
-OUT_DATA_DIR="/public/sist/home/hexm/Datasets/AVA_dataset/videos_15min"
+# Cut each video from its 15th to 30th minute.
+
+IN_DATA_DIR="/public/sist/home/hexm/Datasets/ava_new/videos"
+OUT_DATA_DIR="/public/sist/home/hexm/Datasets/ava_new/videos_15min"
 
 if [[ ! -d "${OUT_DATA_DIR}" ]]; then
   echo "${OUT_DATA_DIR} doesn't exist. Creating it.";

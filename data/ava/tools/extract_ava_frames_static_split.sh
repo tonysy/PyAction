@@ -1,12 +1,15 @@
-IN_DATA_DIR="/public/sist/home/hexm/Datasets/AVA_dataset/videos_15min"
-OUT_DATA_DIR="/public/sist/home/hexm/Datasets/AVA_dataset/frames"
+# Extract frames from videos.
+
+IN_DATA_DIR="/public/sist/home/hexm/Datasets/ava_new/videos_15min_static"
+OUT_DATA_DIR="/public/sist/home/hexm/Datasets/ava_new/frames_static"
+ffmpeg_static="/public/sist/home/hexm/Softwares/ffmpeg-4.2.2-amd64-static/ffmpeg"
 
 if [[ ! -d "${OUT_DATA_DIR}" ]]; then
   echo "${OUT_DATA_DIR} doesn't exist. Creating it.";
   mkdir -p ${OUT_DATA_DIR}
 fi
 
-for video in $(ls -A1 -U ${IN_DATA_DIR}/*)
+for video in $(cat $1)
 do
   video_name=${video##*/}
 
@@ -17,9 +20,10 @@ do
   fi
 
   out_video_dir=${OUT_DATA_DIR}/${video_name}/
+  rm -rf "${out_video_dir}"
   mkdir -p "${out_video_dir}"
 
   out_name="${out_video_dir}/${video_name}_%06d.jpg"
 
-  ffmpeg -i "${video}" -r 30 -q:v 1 "${out_name}"
+  $ffmpeg_static -i "${IN_DATA_DIR}/${video}" -r 30 -q:v 1 "${out_name}"
 done
