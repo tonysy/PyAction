@@ -128,7 +128,7 @@ def log_model_info(model, cfg, is_train=True, writer=None):
     logger.info("Model:\n{}".format(model))
     logger.info("Params: {:,}".format(num_param))
     logger.info("Mem: {:,} MB".format(num_mem))
-    logger.info("FLOPs: {:,} GFLOPs".format())
+    logger.info("FLOPs: {:,} GFLOPs".format(num_gflops))
     if writer is not None:
         writer.add_scalar("Model/Params", num_param, 1)
         writer.add_scalar("Model/Memory", num_mem, 1)

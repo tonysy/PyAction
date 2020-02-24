@@ -206,7 +206,10 @@ def eval_epoch(val_loader, model, val_meter, cur_epoch, cfg, writer):
             # Update and log stats.
             val_meter.update_stats(top1_err, top5_err, inputs[0].size(0) * cfg.NUM_GPUS)
 
-        val_meter.log_iter_stats(cur_epoch, cur_iter)
+        if cfg.DETECTION.ENABLE:
+            val_meter.log_iter_stats(cur_epoch, cur_iter, writer)
+        else:
+            val_meter.log_iter_stats(cur_epoch, cur_iter)
         val_meter.iter_tic()
 
     # Log epoch stats.

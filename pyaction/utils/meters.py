@@ -120,7 +120,7 @@ class AVAMeter(object):
             }
             if du.is_master_proc():
                 # Iter
-                iter_idx = cur_epoch * self.epoch_iters + cur_iter + 1
+                iter_idx = cur_epoch * self.overall_iters + cur_iter + 1
 
                 # Time:
                 writer.add_scalar("Time/train_diff", stats["time_diff"], iter_idx)
@@ -145,7 +145,7 @@ class AVAMeter(object):
             }
             if du.is_master_proc():
                 # Iter
-                iter_idx = cur_epoch * self.epoch_iters + cur_iter + 1
+                iter_idx = cur_epoch * self.overall_iters + cur_iter + 1
 
                 # Time:
                 writer.add_scalar("Time/val_diff", stats["time_diff"], iter_idx)
