@@ -8,7 +8,7 @@ conda activate pytorch1.4
 conda install pytorch=1.4.0 cudatoolkit=10.0 torchvision -c pytorch
 conda install av -c conda-forge
 
-pip install opencv-python
+pip install opencv-python scikit-learn
 pip install -U cython pre-commit easydict colorama simplejson
 pip install -U 'git+https://github.com/facebookresearch/fvcore.git' 
 pip install -U 'git+https://github.com/cocodataset/cocoapi.git#subdirectory=PythonAPI'

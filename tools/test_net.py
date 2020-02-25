@@ -100,7 +100,11 @@ def perform_test(test_loader, model, test_meter, cfg):
         test_meter.iter_tic()
 
     # Log epoch stats and print the final testing results.
-    test_meter.finalize_metrics()
+    if cfg.DETECTION.ENABLE:
+        test_meter.finalize_metrics()
+    else:
+        test_meter.finalize_metrics(out_folder=cfg.OUTPUT_DIR)
+
     test_meter.reset()
 
 

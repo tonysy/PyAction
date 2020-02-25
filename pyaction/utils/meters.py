@@ -9,6 +9,7 @@ import numpy as np
 import os
 from collections import defaultdict, deque
 import torch
+import json
 from statistics import mean
 
 from pyaction.utils.timer import Timer
@@ -386,7 +387,7 @@ class TestMeter(object):
     def iter_toc(self):
         self.iter_timer.pause()
 
-    def finalize_metrics(self, ks=(1, 5)):
+    def finalize_metrics(self, ks=(1, 5), out_folder=""):
         """
         Calculate and log the final ensembled metrics.
         ks (tuple): list of top-k values for topk_accuracies. For example,
@@ -404,9 +405,15 @@ class TestMeter(object):
         topks = [(x / self.video_preds.size(0)) * 100.0 for x in num_topks_correct]
         assert len({len(ks), len(topks)}) == 1
         stats = {"split": "test_final"}
+        acc_dict = metrics.top1_per_class(self.video_preds, self.video_labels)
+
         for k, topk in zip(ks, topks):
             stats["top{}_acc".format(k)] = "{:.{prec}f}".format(topk, prec=2)
+            acc_dict["top{}_acc".format(k)] = "{:.{prec}f}".format(topk, prec=2)
         logging.log_json_stats(stats)
+
+        with open(os.path.join(out_folder, "acc_per_class.json"), "w") as f:
+            json.dump(acc_dict, f)
 
 
 class ScalarMeter(object):

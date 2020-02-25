@@ -4,6 +4,7 @@
 """Functions for computing metrics."""
 
 import torch
+from sklearn.metrics import confusion_matrix
 
 
 def topks_correct(preds, labels, ks):
@@ -62,3 +63,30 @@ def topk_accuracies(preds, labels, ks):
     """
     num_topks_correct = topks_correct(preds, labels, ks)
     return [(x / preds.size(0)) * 100.0 for x in num_topks_correct]
+
+
+def top1_per_class(preds, labels):
+    """
+    Given the predictions, labels, compute the top-1 accuracy for each category.
+
+    Args:
+        preds (array): array of predictions. Dimension is batchsize
+            N x ClassNum.
+        labels (array): array of labels. Dimension is batchsize N.
+    """
+
+    assert preds.size(0) == labels.size(
+        0
+    ), "Batch dim of predictions and labels must match"
+
+    # Find top-1 prediction for each sample
+    _top1_vals, top1_inds = torch.topk(preds, 1, dim=1, largest=True, sorted=True)
+    top1_inds = top1_inds.view(-1)
+
+    matrix = confusion_matrix(labels.cpu().numpy(), top1_inds.cpu().numpy())
+
+    acc_list = (matrix.diagonal() / matrix.sum(axis=1)).tolist()
+
+    acc_dict = dict(zip(range(len(acc_list)), acc_list))
+
+    return acc_dict
