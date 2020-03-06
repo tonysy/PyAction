@@ -53,7 +53,7 @@ _config_dict = dict(
         TEST_FORCE_FLIP = False,
         TEST_LISTS = ["val.csv"],
         TEST_PREDICT_BOX_LISTS=[
-            "/person_box_67091280_iou90/ava_detection_val_boxes_and_labels.csv"
+            "person_box_67091280_iou90/ava_detection_val_boxes_and_labels.csv"
         ],
         TRAIN_GT_BOX_LISTS = ["ava_train_v2.2.csv"],
         TRAIN_LISTS = ["train.csv"],
