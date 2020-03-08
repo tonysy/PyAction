@@ -70,10 +70,12 @@ with open("tools/pyaction_run", "w") as pyaction_run:
     pyaction_run.write(
         head + f"python3 {os.path.join(cur_dir, 'tools', 'run_net.py')} $@"
     )
-# with open("tools/cvpack2_test", "w") as cvpack2_test:
-#     cvpack2_test.write(
-#         head + f"python3 {os.path.join(cur_dir, 'tools', 'test_net.py')} $@")
+with open("tools/pyaction_run_queue", "w") as pyaction_run:
+    head = f"""#!/bin/bash\n\nnum_gpu_require=4\nmax_gpu_num=4\necho "Wait until $num_gpu_require gpu are available..."\ngpu_info=($({os.path.join(cur_dir, 'tools', 'gpu_usage_scan.sh')} $num_gpu_require $max_gpu_num))\ngpu_num=${{gpu_info[0]}}\necho "got it, start the script!"\n\nexport OMP_NUM_THREADS=1\n"""  # noqa: E501
 
+    pyaction_run.write(
+        head + f"python3 {os.path.join(cur_dir, 'tools', 'run_net.py')} $@"
+    )
 
 setup(
     name="pyaction",
@@ -96,5 +98,5 @@ setup(
     extras_require={"all": ["shapely", "psutil"]},
     ext_modules=get_extensions(),
     cmdclass={"build_ext": torch.utils.cpp_extension.BuildExtension},
-    scripts=["tools/pyaction_run"],
+    scripts=["tools/pyaction_run", "tools/pyaction_run_queue"],
 )

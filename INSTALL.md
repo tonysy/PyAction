@@ -8,7 +8,7 @@ conda activate pytorch1.4
 conda install pytorch=1.4.0 cudatoolkit=10.0 torchvision -c pytorch
 conda install av -c conda-forge
 
-pip install opencv-python scikit-learn
+pip install opencv-python scikit-learn gpustat
 pip install -U cython pre-commit easydict colorama simplejson
 pip install -U 'git+https://github.com/facebookresearch/fvcore.git' 
 pip install -U 'git+https://github.com/cocodataset/cocoapi.git#subdirectory=PythonAPI'
@@ -24,6 +24,7 @@ You need to build gcc-5.2.0 first.
 source activate pytorch1.4
 # Folder to store the models and logs
 export PYACTION_OUTPUT='/public/sist/home/hexm/Models/pyaction'
+export PYACTION_HOME='/public/sist/home/hexm/Projects/pyaction'
 
 #gcc 5.2.0
 export PATH=~/local/bin:$PATH
