@@ -24,3 +24,7 @@ bash data/ava/tools/extract_ava_frames.sh
 
 ## Download annotations.
 
+# Data Structure
+data/ava/annotations /public/sist/home/hexm/Datasets/AVA_dataset/annotations/
+data/ava/frames /public/sist/home/hexm/Datasets/ava_new/frames_static/
+data/ava/frame_lists /public/sist/home/hexm/Datasets/AVA_dataset/frame_lists/
