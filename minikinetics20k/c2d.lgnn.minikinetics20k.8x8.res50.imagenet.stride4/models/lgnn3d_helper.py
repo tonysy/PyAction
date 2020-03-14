@@ -221,7 +221,7 @@ class LatentGNN3D(nn.Module):
 
 if __name__ == '__main__':
     latent_node = 10
-
+    import numpy as np
     model = LatentGNN3D(
         dim=512,
         dim_inner=256,
@@ -231,7 +231,10 @@ if __name__ == '__main__':
     out = model(inputs)
     from fvcore.nn.flop_count import flop_count
     flop_dict = flop_count(model, (inputs,))
+    num_param_lgnn3d = np.sum([p.numel() for p in model.parameters()])#.item()
     print("LatentGNN3D Flops:{}G".format(sum(list(flop_dict.values()))))
+    print("LatentGNN3D Parameter:{}".format(num_param_lgnn3d))
+
     from lgnn_helper import LatentGNN
     latent_model = LatentGNN(
         in_channels=512,
@@ -243,7 +246,8 @@ if __name__ == '__main__':
     inputs_lgnn = torch.randn(1, 512, 8, 28*28)
     flop_dict_lgnn = flop_count(latent_model, (inputs_lgnn,))
     print("LatentGNN Flops:{}G".format(sum(list(flop_dict_lgnn.values()))))
-
+    num_param_lgnn = np.sum([p.numel() for p in latent_model.parameters()])#.item()
+    print("LatentGNN Parameter:{}".format(num_param_lgnn))
     from pyaction.models.nonlocal_helper import Nonlocal
     nonlocal_model = Nonlocal(
         dim=512,
@@ -251,9 +255,15 @@ if __name__ == '__main__':
         pool_size=[1, 2, 2],
     )
     flop_dict_nln = flop_count(nonlocal_model, (inputs,))
+    num_param_nln = np.sum([p.numel() for p in nonlocal_model.parameters()]) #.item()
     print("Nonlocal Flops:{}G".format(sum(list(flop_dict_nln.values()))))
 
-    
+    print("Nonlocal Parameter:{}".format(num_param_nln))
+    print("Parame- Nonlocal: LatentGNN3D={}".format(
+        num_param_nln / num_param_lgnn3d ))
+    print("Parame- Nonlocal: LatentGNN={}".format(
+        num_param_nln / num_param_lgnn ))
+
     print("Nonlocal: LatentGNN3D={}".format(
         sum(list(flop_dict_nln.values())) / sum(list(flop_dict.values())) ))
     
