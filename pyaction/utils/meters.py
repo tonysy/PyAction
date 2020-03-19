@@ -79,7 +79,7 @@ class AVAMeter(object):
 
         _, self.video_idx_to_name = ava_helper.load_image_lists(cfg, mode == "train")
 
-    def log_iter_stats(self, cur_epoch, cur_iter, writer):
+    def log_iter_stats(self, cur_epoch, cur_iter, writer=None):
         """
         Log the stats.
         Args:
@@ -126,6 +126,7 @@ class AVAMeter(object):
                 # Time:
                 writer.add_scalar("Time/train_diff", stats["time_diff"], iter_idx)
                 writer.add_scalar("Time/train_loss", stats["time_loss"], iter_idx)
+                writer.add_scalar("Time/train_data", stats["time_data"], iter_idx)
                 writer.add_scalar("Time/train_forward", stats["time_forward"], iter_idx)
                 writer.add_scalar(
                     "Time/train_backward", stats["time_backward"], iter_idx
@@ -164,7 +165,7 @@ class AVAMeter(object):
                 # Iter
                 iter_idx = cur_iter + 1
                 # Time:
-                writer.add_scalar("Time/test_diff", stats["time_diff"], iter_idx)
+                # writer.add_scalar("Time/test_diff", stats["time_diff"], iter_idx)
 
         else:
             raise NotImplementedError("Unknown mode: {}".format(self.mode))
