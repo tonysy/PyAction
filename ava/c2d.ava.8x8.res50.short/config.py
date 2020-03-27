@@ -37,7 +37,7 @@ _config_dict = dict(
             "/", *osp.realpath(pyaction.__file__).split("/")[:-2], "data/ava/annotations/")
         ),
         BGR = False,
-        DETECTION_SCORE_THRESH=0.8,
+        DETECTION_SCORE_THRESH=0.9,
         EXCLUSION_FILE = "ava_val_excluded_timestamps_v2.2.csv",
         FRAME_DIR=osp.join(
             "/", *osp.realpath(pyaction.__file__).split("/")[:-2], "data/ava/frames"
@@ -87,7 +87,8 @@ _config_dict = dict(
     SOLVER=dict(
         BASE_LR=0.1, 
         LR_POLICY="steps_with_relative_lrs",
-        STEPS = [0, 10, 5, 5],
+        # STEPS = [0, 10, 5, 5],
+        STEPS = [0, 10, 15, 20],
         LRS = [1, 0.1, 0.01, 0.001],
         MAX_EPOCH=20, 
         MOMENTUM=0.9,
@@ -104,7 +105,7 @@ _config_dict = dict(
         DATASET="ava", 
         BATCH_SIZE=4),
     DATA_LOADER=dict(
-        NUM_WORKERS=4,
+        NUM_WORKERS=16,
         PIN_MEMORY=True,
         # ENABLE_MULTI_THREAD_DECODE=True
     ),

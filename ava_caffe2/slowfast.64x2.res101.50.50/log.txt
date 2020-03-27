@@ -1,0 +1,120 @@
+(slowfast) [@localhost slowfast]$ python tools/run_net.py --cfg configs/AVA/c2/SLOWFAST_64x2_R101_50_50.yaml TEST.CHECKPOINT_FILE_PATH model/SLOWFAST_64x2_R101_50_50.pkl  TRAIN.ENABLE False
+[INFO: test_net.py:  122]: Test with config:
+[INFO: test_net.py:  123]: AVA:
+  ANNOTATION_DIR: data/ava/annotations/
+  BGR: False
+  DETECTION_SCORE_THRESH: 0.8
+  EXCLUSION_FILE: ava_val_excluded_timestamps_v2.1.csv
+  FRAME_DIR: data/ava/frames/
+  FRAME_LIST_DIR: data/ava/frame_lists/
+  FULL_TEST_ON_VAL: False
+  GROUNDTRUTH_FILE: ava_val_v2.2.csv
+  IMG_PROC_BACKEND: cv2
+  LABEL_MAP_FILE: ava_action_list_v2.1_for_activitynet_2018.pbtxt
+  TEST_FORCE_FLIP: False
+  TEST_LISTS: ['val.csv']
+  TEST_PREDICT_BOX_LISTS: ['ava_val_predicted_boxes.csv']
+  TRAIN_GT_BOX_LISTS: ['ava_train_v2.2.csv']
+  TRAIN_LISTS: ['train.csv']
+  TRAIN_PCA_EIGVAL: [0.225, 0.224, 0.229]
+  TRAIN_PCA_EIGVEC: [[-0.5675, 0.7192, 0.4009], [-0.5808, -0.0045, -0.814], [-0.5836, -0.6948, 0.4203]]
+  TRAIN_PCA_JITTER_ONLY: True
+  TRAIN_PREDICT_BOX_LISTS: []
+  TRAIN_USE_COLOR_AUGMENTATION: False
+BN:
+  EPSILON: 1e-05
+  MOMENTUM: 0.1
+  NUM_BATCHES_PRECISE: 200
+  USE_PRECISE_STATS: False
+  WEIGHT_DECAY: 0.0
+DATA:
+  CROP_SIZE: 224
+  INPUT_CHANNEL_NUM: [3, 3]
+  MEAN: [0.45, 0.45, 0.45]
+  NUM_FRAMES: 64
+  PATH_PREFIX:
+  PATH_TO_DATA_DIR:
+  SAMPLING_RATE: 2
+  STD: [0.225, 0.225, 0.225]
+  TEST_CROP_SIZE: 256
+  TRAIN_CROP_SIZE: 224
+  TRAIN_JITTER_SCALES: [256, 320]
+DATA_LOADER:
+  ENABLE_MULTI_THREAD_DECODE: False
+  NUM_WORKERS: 0
+  PIN_MEMORY: True
+DETECTION:
+  ALIGNED: False
+  ENABLE: True
+  ROI_XFORM_RESOLUTION: 7
+  SPATIAL_SCALE_FACTOR: 16
+DIST_BACKEND: nccl
+LOG_PERIOD: 10
+MODEL:
+  ARCH: slowfast
+  DROPOUT_RATE: 0.5
+  FC_INIT_STD: 0.01
+  LOSS_FUNC: bce
+  MULTI_PATHWAY_ARCH: ['slowfast']
+  NUM_CLASSES: 80
+  SINGLE_PATHWAY_ARCH: ['c2d', 'i3d', 'slowonly']
+NONLOCAL:
+  GROUP: [[1, 1], [1, 1], [1, 1], [1, 1]]
+  INSTANTIATION: dot_product
+  LOCATION: [[[], []], [[], []], [[6, 13, 20], []], [[], []]]
+  POOL: [[[2, 2, 2], [2, 2, 2]], [[2, 2, 2], [2, 2, 2]], [[2, 2, 2], [2, 2, 2]], [[2, 2, 2], [2, 2, 2]]]
+NUM_GPUS: 2
+NUM_SHARDS: 1
+OUTPUT_DIR: .
+RESNET:
+  DEPTH: 101
+  INPLACE_RELU: True
+  NUM_BLOCK_TEMP_KERNEL: [[3, 3], [4, 4], [6, 6], [3, 3]]
+  NUM_GROUPS: 1
+  SPATIAL_DILATIONS: [[1, 1], [1, 1], [1, 1], [2, 2]]
+  SPATIAL_STRIDES: [[1, 1], [2, 2], [2, 2], [1, 1]]
+  STRIDE_1X1: False
+  TRANS_FUNC: bottleneck_transform
+  WIDTH_PER_GROUP: 64
+  ZERO_INIT_FINAL_BN: True
+RNG_SEED: 0
+SHARD_ID: 0
+SLOWFAST:
+  ALPHA: 4
+  BETA_INV: 8
+  FUSION_CONV_CHANNEL_RATIO: 2
+  FUSION_KERNEL_SZ: 5
+SOLVER:
+  BASE_LR: 0.1
+  DAMPENING: 0.0
+  GAMMA: 0.1
+  LRS: []
+  LR_POLICY: cosine
+  MAX_EPOCH: 300
+  MOMENTUM: 0.9
+  NESTEROV: True
+  OPTIMIZING_METHOD: sgd
+  STEPS: []
+  STEP_SIZE: 1
+  WARMUP_EPOCHS: 0
+  WARMUP_FACTOR: 0.1
+  WARMUP_START_LR: 0.01
+  WEIGHT_DECAY: 1e-07
+TEST:
+  BATCH_SIZE: 2
+  CHECKPOINT_FILE_PATH: model/SLOWFAST_64x2_R101_50_50.pkl
+  CHECKPOINT_TYPE: caffe2
+  DATASET: ava
+  ENABLE: True
+  NUM_ENSEMBLE_VIEWS: 10
+  NUM_SPATIAL_CROPS: 3
+TRAIN:
+  AUTO_RESUME: True
+  BATCH_SIZE: 16
+  CHECKPOINT_FILE_PATH:
+  CHECKPOINT_INFLATE: False
+  CHECKPOINT_PERIOD: 1
+  CHECKPOINT_TYPE: caffe2
+  DATASET: ava
+  ENABLE: False
+  EVAL_PERIOD: 1
