@@ -8,6 +8,7 @@ data/ava/annotations
 data/ava/ava_annotations
 data/ava/frame_lists
 data/ava/frames
+train_video_meta.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
