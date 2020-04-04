@@ -5,12 +5,14 @@
 We provided original pretrained models from Caffe2 on heavy models (testing Caffe2 pretrained model in PyTorch might have a small different in performance):
 
 ### Trained in PyAction
-| architecture | depth |  pretrain |  frame length x sample rate | top1 |  top5  |  top1(Our) |  top5(Our)  | model | config |
-| ------------- | ------------- | ------------- | ------------- | ------------- | ------------- | ------------- | ------------- |------------- | ------------- |
-| C2D | R50 | [ImageNet Res-50](https://dl.fbaipublicfiles.com/pyslowfast/model_zoo/kinetics400/R50_IN1K.pyth) | 8 x 8 | 72.1 | 89.9 | [`link`]() |workspace/kinetics/c2d.kinetics400.8x8.res50.imagenet|
-| C2D NLN | R50 | [ImageNet Res-50](https://dl.fbaipublicfiles.com/pyslowfast/model_zoo/kinetics400/R50_IN1K.pyth) | 8 x 8 | 74.0 | 91.1 | [`link`]() |workspace/kinetics/c2d.nonlocal.kinetics400.8x8.res50.imagenet|
-| I3D | R50 | [ImageNet Res-50](https://dl.fbaipublicfiles.com/pyslowfast/model_zoo/kinetics400/R50_IN1K.pyth) | 8 x 8 |  |  | [`link`]() |workspace/kinetics/i3d.kinetics400.8x8.res50.imagenet|
-| I3D NLN | R50 | [ImageNet Res-50](https://dl.fbaipublicfiles.com/pyslowfast/model_zoo/kinetics400/R50_IN1K.pyth) | 8 x 8 | 74.2 | 91.4 | [`link`]() |workspace/kinetics/i3d.nonlocal.kinetics400.8x8.res50.imagenet|
+| architecture | depth |  pretrain |  frame length x sample rate | top1 |  top5  | model | config | dataloader |
+| ------------- | ------------- | ------------- | ------------- | ------------- | ------------- | ------------- | ------------- | ---------- |
+| C2D | R50 | [ImageNet Res-50](https://dl.fbaipublicfiles.com/pyslowfast/model_zoo/kinetics400/R50_IN1K.pyth) | 8 x 8 | 72.1 | 89.9 | [`link`]() |workspace/kinetics/c2d.kinetics400.8x8.res50.imagenet| pyav |
+| C2D NLN | R50 | [ImageNet Res-50](https://dl.fbaipublicfiles.com/pyslowfast/model_zoo/kinetics400/R50_IN1K.pyth) | 8 x 8 | 74.0 | 91.1 | [`link`]() |workspace/kinetics/c2d.nonlocal.kinetics400.8x8.res50.imagenet|pyav |
+| C2D | R18 | [ImageNet Res-18](./model_zoo/kinetics400/R50_IN1K.pyth) | 8 x 8 | 72.1 | 89.9 | [`link`]() |workspace/kinetics_r18/c2d.kinetics400.8x8.res18.imagenet| pyav |
+| C2D NLN | R18 | [ImageNet Res-18](./model_zoo/kinetics400/R50_IN1K.pyth) | 8 x 8 | 74.0 | 91.1 | [`link`]() |workspace/kinetics_r18/c2d.nonlocal.kinetics400.8x8.res18.imagenet|pyav |
+| I3D | R50 | [ImageNet Res-50](https://dl.fbaipublicfiles.com/pyslowfast/model_zoo/kinetics400/R50_IN1K.pyth) | 8 x 8 |  |  | [`link`]() |workspace/kinetics/i3d.kinetics400.8x8.res50.imagenet|pyav |
+| I3D NLN | R50 | [ImageNet Res-50](https://dl.fbaipublicfiles.com/pyslowfast/model_zoo/kinetics400/R50_IN1K.pyth) | 8 x 8 | 74.2 | 91.4 | [`link`]() |workspace/kinetics/i3d.nonlocal.kinetics400.8x8.res50.imagenet|pyav |
 * +NLN use 5 blocks in all experiments
 
 ### Provided in SlowFast
@@ -30,7 +32,8 @@ We provided original pretrained models from Caffe2 on heavy models (testing Caff
 ### Trained in PyAction
 | architecture | depth | Pretrain Model |  frame length x sample rate  | MAP | AVA version | model | config |
 | ------------- | ------------- | ------------- | ------------- | ------------- | ------------- |------------- |------------- |
-| C2D      | R50 | [Kinetics 400](https://dl.fbaipublicfiles.com/pyslowfast/model_zoo/ava/pretrain/C2D_8x8_R50.pkl) | 4 x 16 |  13.9    | 2.2 | | workspace/ava/c2d.ava.8x8.res50.short
+| C2D      | R50 | [C2D(8x8)-Kinetics 400](https://dl.fbaipublicfiles.com/pyslowfast/model_zoo/ava/pretrain/C2D_8x8_R50.pkl) | 4 x 16 |  20.69    | 2.2 | | workspace/ava/c2d.ava.8x8.res50.short
+| SlowFast      | R50 | [SlowFast(8x8)-Kinetics 400](https://dl.fbaipublicfiles.com/pyslowfast/model_zoo/kinetics400/SLOWFAST_8x8_R50.pkl) | S:8 x 8;F:32x2 |  24.9    | 2.2 | | workspace/ava/slowfast.ava.32x2.res50.short
 
 ### Provided in SlowFast
 | architecture | depth | Pretrain Model |  frame length x sample rate  | MAP | AVA version | model | config |

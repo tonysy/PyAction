@@ -54,6 +54,7 @@ _config_dict = dict(
         TEST_LISTS = ["val.csv"],
         TEST_PREDICT_BOX_LISTS=[
             "person_box_67091280_iou90/ava_detection_val_boxes_and_labels.csv"
+            # "person_box_67091280_iou75/ava_detection_val_boxes_and_labels.csv"
         ],
         TRAIN_GT_BOX_LISTS = ["ava_train_v2.2.csv"],
         TRAIN_LISTS = ["train.csv"],
@@ -83,6 +84,8 @@ _config_dict = dict(
         ZERO_INIT_FINAL_BN=True, 
         DEPTH=50, 
         NUM_BLOCK_TEMP_KERNEL=[[3], [4], [6], [3]],
+        SPATIAL_DILATIONS=[[1], [1], [1], [2]],
+        SPATIAL_STRIDES=[[1], [2], [2], [1]]
     ),
     SOLVER=dict(
         BASE_LR=0.1, 
@@ -105,7 +108,7 @@ _config_dict = dict(
         DATASET="ava", 
         BATCH_SIZE=4),
     DATA_LOADER=dict(
-        NUM_WORKERS=16,
+        NUM_WORKERS=8,
         PIN_MEMORY=True,
         # ENABLE_MULTI_THREAD_DECODE=True
     ),

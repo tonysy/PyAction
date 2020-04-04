@@ -5,13 +5,40 @@ import pyaction
 from pyaction.configs.base_config import BaseConfig
 
 _config_dict = dict(
+    BN=dict(
+        USE_PRECISE_STATS=False, 
+        NUM_BATCHES_PRECISE=200, 
+        MOMENTUM=0.1, 
+        WEIGHT_DECAY=0.0,
+    ),
+    TRAIN=dict(
+        ENABLE=False,
+        DATASET="ava", 
+        BATCH_SIZE=64, 
+        EVAL_PERIOD=5, 
+        CHECKPOINT_PERIOD=1,
+        CHECKPOINT_FILE_PATH=osp.join(
+            "/",
+            *osp.realpath(pyaction.__file__).split("/")[:-2],
+            "model_zoo/ava/pretrain/C2D_8x8_R50.pkl",
+        ),
+        CHECKPOINT_TYPE='caffe2'
+    ),
+    DATA=dict(
+        PATH_TO_DATA_DIR=osp.join(
+            "/", *osp.realpath(pyaction.__file__).split("/")[:-2], "data/kinetics"
+        ),
+        NUM_FRAMES=4,
+        SAMPLING_RATE=16,
+        INPUT_CHANNEL_NUM=[3],
+    ),
     AVA=dict(
         ANNOTATION_DIR = (
             osp.join(
             "/", *osp.realpath(pyaction.__file__).split("/")[:-2], "data/ava/annotations/")
         ),
         BGR = False,
-        DETECTION_SCORE_THRESH=0.8,
+        DETECTION_SCORE_THRESH=0.9,
         EXCLUSION_FILE = "ava_val_excluded_timestamps_v2.2.csv",
         FRAME_DIR=osp.join(
             "/", *osp.realpath(pyaction.__file__).split("/")[:-2], "data/ava/frames"
@@ -27,9 +54,9 @@ _config_dict = dict(
         TEST_FORCE_FLIP = False,
         TEST_LISTS = ["val.csv"],
         TEST_PREDICT_BOX_LISTS=[
-            "person_box_67091280_iou90/ava_detection_val_boxes_and_labels.csv"
+            # "person_box_67091280_iou90/ava_detection_val_boxes_and_labels.csv"
+            "person_box_67091280_iou75/ava_detection_val_boxes_and_labels.csv"
         ],
-        # TEST_LISTS = ["val_subset_5.csv"],
         TRAIN_GT_BOX_LISTS = ["ava_train_v2.2.csv"],
         TRAIN_LISTS = ["train.csv"],
         TRAIN_PCA_EIGVAL = [0.225, 0.224, 0.229],
@@ -45,59 +72,26 @@ _config_dict = dict(
         ],
         TRAIN_USE_COLOR_AUGMENTATION = False,
     ),
-    BN=dict(
-        USE_PRECISE_STATS=False, 
-        NUM_BATCHES_PRECISE=200, 
-        MOMENTUM=0.1, 
-        WEIGHT_DECAY=0.0,
-    ),
-    DATA=dict(
-        PATH_TO_DATA_DIR='',
-        NUM_FRAMES=32,
-        SAMPLING_RATE=2,
-        INPUT_CHANNEL_NUM=[3, 3],
-    ),
-    DATA_LOADER=dict(
-        NUM_WORKERS=16,
-        PIN_MEMORY=True,
-        # ENABLE_MULTI_THREAD_DECODE=True
-    ),
     DETECTION=dict(
         ENABLE = True,
         # Aligned version of RoI. More details can be found at slowfast/models/head_helper.py
-        ALIGNED = True,
+        ALIGNED = False,
         # Spatial scale factor.
         SPATIAL_SCALE_FACTOR = 16,
         # RoI tranformation resolution.
         ROI_XFORM_RESOLUTION = 7,
     ),
-    MODEL=dict(
-        ARCH="slowfast",
-        LOSS_FUNC='bce', 
-        NUM_CLASSES=80,),
-
-    NONLOCAL=dict(
-        LOCATION=[[[], []], [[], []], [[], []], [[], []]],
-        GROUP=[[1, 1], [1, 1], [1, 1], [1, 1]],
-        INSTANTIATION='dot_product',
-        POOL=[[[1, 2, 2], [1, 2, 2]], [[1, 2, 2], [1, 2, 2]], [[1, 2, 2], [1, 2, 2]], [[1, 2, 2], [1, 2, 2]]]
-    ),
     RESNET=dict(
-        DEPTH=50, 
-        NUM_BLOCK_TEMP_KERNEL= [[3, 3], [4, 4], [6, 6], [3, 3]],
-        SPATIAL_DILATIONS = [[1, 1], [1, 1], [1, 1], [2, 2]],
-        SPATIAL_STRIDES = [[1, 1], [2, 2], [2, 2], [1, 1]],
         ZERO_INIT_FINAL_BN=True, 
-    ),
-    SLOWFAST=dict(
-        ALPHA=4,
-        BETA_INV=8,
-        FUSION_CONV_CHANNEL_RATIO=2,
-        FUSION_KERNEL_SZ=7,
+        DEPTH=50, 
+        NUM_BLOCK_TEMP_KERNEL=[[3], [4], [6], [3]],
+        SPATIAL_DILATIONS=[[1], [1], [1], [2]],
+        SPATIAL_STRIDES=[[1], [2], [2], [1]]
     ),
     SOLVER=dict(
-        BASE_LR=0.05, 
+        BASE_LR=0.1, 
         LR_POLICY="steps_with_relative_lrs",
+        # STEPS = [0, 10, 5, 5],
         STEPS = [0, 10, 15, 20],
         LRS = [1, 0.1, 0.01, 0.001],
         MAX_EPOCH=20, 
@@ -106,29 +100,24 @@ _config_dict = dict(
         WARMUP_EPOCHS=5,
         WARMUP_START_LR=0.000125,
         OPTIMIZING_METHOD='sgd'),
-    
+    MODEL=dict(
+        ARCH="slowonly",
+        LOSS_FUNC='bce', 
+        NUM_CLASSES=80,),
     TEST=dict(
         ENABLE=True, 
         DATASET="ava", 
         BATCH_SIZE=4,
-        # CHECKPOINT_TYPE="caffe2",
-        # CHECKPOINT_FILE_PATH=osp.join(
-        #     "/",
-        #     *osp.realpath(pyaction.__file__).split("/")[:-2],
-        #     "model_zoo/ava/SLOWFAST_32x2_R101_50_50_v2.1.pkl",
-        # ),
-    ),
-    TRAIN=dict(
-        DATASET="ava", 
-        BATCH_SIZE=32, 
-        EVAL_PERIOD=5, 
-        CHECKPOINT_PERIOD=1,
+        CHECKPOINT_TYPE="caffe2",
         CHECKPOINT_FILE_PATH=osp.join(
             "/",
             *osp.realpath(pyaction.__file__).split("/")[:-2],
-            "model_zoo/ava/pretrain/SLOWFAST_8x8_R50.pkl",
-        ),
-        CHECKPOINT_TYPE='caffe2'
+            "model_zoo/ava/C2D_8x8_R50.pkl",
+        ),),
+    DATA_LOADER=dict(
+        NUM_WORKERS=4,
+        PIN_MEMORY=True,
+        # ENABLE_MULTI_THREAD_DECODE=True
     ),
     NUM_GPUS=4,
     NUM_SHARDS=1,

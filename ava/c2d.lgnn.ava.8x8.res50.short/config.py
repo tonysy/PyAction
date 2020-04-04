@@ -83,6 +83,8 @@ _config_dict = dict(
         ZERO_INIT_FINAL_BN=True, 
         DEPTH=50, 
         NUM_BLOCK_TEMP_KERNEL=[[3], [4], [6], [3]],
+        SPATIAL_DILATIONS=[[1], [1], [1], [2]],
+        SPATIAL_STRIDES=[[1], [2], [2], [1]]
     ),
     # NONLOCAL=dict(
     #     LOCATION=[[[]], [[1, 3]], [[1, 3, 5]], [[]]],
@@ -140,7 +142,7 @@ _config_dict = dict(
         DATASET="ava", 
         BATCH_SIZE=4),
     DATA_LOADER=dict(
-        NUM_WORKERS=16,
+        NUM_WORKERS=8,
         PIN_MEMORY=True,
         # ENABLE_MULTI_THREAD_DECODE=True
     ),
