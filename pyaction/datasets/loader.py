@@ -62,17 +62,26 @@ def construct_loader(cfg, split):
     assert split in ["train", "val", "test"]
     if split in ["train"]:
         dataset_name = cfg.TRAIN.DATASET
-        batch_size = int(cfg.TRAIN.BATCH_SIZE / cfg.NUM_GPUS)
+        if cfg.DIST_MULTIPROCESS:
+            batch_size = int(cfg.TRAIN.BATCH_SIZE / cfg.NUM_GPUS)
+        else:
+            batch_size = int(cfg.TRAIN.PER_BATCH_SIZE)
         shuffle = True
         drop_last = True
     elif split in ["val"]:
         dataset_name = cfg.TRAIN.DATASET
-        batch_size = int(cfg.TRAIN.BATCH_SIZE / cfg.NUM_GPUS)
+        if cfg.DIST_MULTIPROCESS:
+            batch_size = int(cfg.TRAIN.BATCH_SIZE / cfg.NUM_GPUS)
+        else:
+            batch_size = int(cfg.TRAIN.PER_BATCH_SIZE)
         shuffle = False
         drop_last = False
     elif split in ["test"]:
         dataset_name = cfg.TEST.DATASET
-        batch_size = int(cfg.TEST.BATCH_SIZE / cfg.NUM_GPUS)
+        if cfg.DIST_MULTIPROCESS:
+            batch_size = int(cfg.TEST.BATCH_SIZE / cfg.NUM_GPUS)
+        else:
+            batch_size = int(cfg.TEST.PER_BATCH_SIZE)
         shuffle = False
         drop_last = False
 

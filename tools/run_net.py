@@ -114,7 +114,7 @@ def main():
 
     # Perform training.
     if cfg.TRAIN.ENABLE:
-        if cfg.NUM_GPUS > 1:
+        if cfg.NUM_GPUS > 1 and cfg.DIST_MULTIPROCESS:
             torch.multiprocessing.spawn(
                 mpu.run,
                 nprocs=cfg.NUM_GPUS,
@@ -129,12 +129,24 @@ def main():
                 ),
                 daemon=False,
             )
-        else:
+        elif cfg.NUM_GPUS == 1:
             train(cfg=cfg)
+        else:
+            try:
+                torch.distributed.init_process_group(
+                    backend=cfg.DIST_BACKEND,
+                    init_method=args.init_method,
+                    world_size=cfg.NUM_SHARDS,
+                    rank=cfg.SHARD_ID
+                )
+                train(cfg=cfg)
+
+            except Exception as e:
+                raise e
 
     # Perform multi-clip testing.
     if cfg.TEST.ENABLE:
-        if cfg.NUM_GPUS > 1:
+        if cfg.NUM_GPUS > 1 and cfg.DIST_MULTIPROCESS:
             torch.multiprocessing.spawn(
                 mpu.run,
                 nprocs=cfg.NUM_GPUS,
@@ -149,8 +161,21 @@ def main():
                 ),
                 daemon=False,
             )
-        else:
+        elif cfg.NUM_GPUS == 1:
             test(cfg=cfg)
+        else:
+            try:
+                torch.distributed.init_process_group(
+                    backend=cfg.DIST_BACKEND,
+                    init_method=args.init_method,
+                    world_size=cfg.NUM_SHARDS,
+                    rank=cfg.SHARD_ID
+                )
+                test(cfg=cfg)
+
+            except Exception as e:
+                raise e
+
 
 
 if __name__ == "__main__":
