@@ -36,7 +36,7 @@ args = parse_args()
 dataset_path_prefix = args.path_prefix
 
 data_path = os.path.join(
-    dataset_path_prefix, "kinetics-400/raw-part/compress/train_256"
+    dataset_path_prefix, "train_256"
 )
 
 assert os.path.exists(data_path)
@@ -52,7 +52,7 @@ if not os.path.exists("./cat_mapping.json"):
 
 # ------------- Train CSV generation ----------------------
 train_data_path = os.path.join(
-    dataset_path_prefix, "kinetics-400/raw-part/compress/train_256"
+    dataset_path_prefix, "train_256"
 )
 
 train_cat_dict = {}
@@ -76,7 +76,7 @@ print("Total Train {} video clips".format(len(train_csv_list)))
 # ------------- Val CSV generation ----------------------
 
 val_data_path = os.path.join(
-    dataset_path_prefix, "kinetics-400/raw-part/compress/val_256"
+    dataset_path_prefix, "val_256"
 )
 
 val_cat_dict = {}

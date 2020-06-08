@@ -71,12 +71,6 @@ def get_flop_stats(model, cfg, is_train, writer):
             cfg.DATA.TEST_CROP_SIZE,
             cfg.DATA.TEST_CROP_SIZE,
         )
-    whitelist_ops = [
-        "aten::addmm",
-        "aten::_convolution",
-        "aten::einsum",
-        "aten::matmul",
-    ]
     flop_inputs = pack_pathway_output(cfg, input_tensors)
 
     for i in range(len(flop_inputs)):
@@ -90,7 +84,7 @@ def get_flop_stats(model, cfg, is_train, writer):
     else:
         inputs = (flop_inputs,)
 
-    gflop_dict = flop_count(model, inputs, whitelist_ops)
+    gflop_dict, _  = flop_count(model, inputs)
     gflops = sum(gflop_dict.values())
     if writer is not None:
         writer.add_graph(model, inputs)
