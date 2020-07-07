@@ -22,14 +22,13 @@ def parse_args():
     parser.add_argument(
         "--path-prefix",
         help="Folder of Kinetics dataset",
-        default="/public/sist/home/hexm/Datasets/",
+        default=os.path.expanduser("~/Datasets/kinetics-400/raw-part/compress"), #"/public/sist/home/hexm/Datasets/",
         type=str,
     )
 
     # if len(sys.argv) == 1:
     #     parser.print_help()
     return parser.parse_args()
-
 
 # dataset_path_prefix = "/public/sist/home/hexm/Datasets/"
 args = parse_args()
