@@ -19,7 +19,7 @@ logger = logging.get_logger(__name__)
 
 
 @DATASET_REGISTRY.register()
-class KineticsNShot(torch.utils.data.Dataset):
+class Kineticsnshot(torch.utils.data.Dataset):
     """
     Kinetics video loader. Construct the Kinetics video loader, then sample
     clips from the videos. For training and validation, a single clip is
@@ -69,8 +69,8 @@ class KineticsNShot(torch.utils.data.Dataset):
             self._num_clips = cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS
 
         # few-shot
-        self.classes_per_set = cfg.CLASSES_PER_SET
-        self.samples_per_class = cfg.SAMPLES_PER_CLASS 
+        self.classes_per_set = cfg.FEW_SHOT.CLASSES_PER_SET
+        self.samples_per_class = cfg.FEW_SHOT.SAMPLES_PER_CLASS 
 
         logger.info("Constructing Kinetics {}...".format(mode))
         self._construct_loader()
@@ -112,7 +112,7 @@ class KineticsNShot(torch.utils.data.Dataset):
 
         # For few-shot learning
         self.data_classes = []  # list of data lists for each class
-        for _ in range(max(self._labels)):
+        for _ in range(max(self._labels)+1):
             self.data_classes.append([])
         for i in range(len(self._labels)):
             path = self._path_to_videos[i]
@@ -142,7 +142,34 @@ class KineticsNShot(torch.utils.data.Dataset):
         x_hat_class = np.random.choice(classes, self.samples_per_class, True)
 
         # return a dict
-        ret = {"support":[], "target":[]}
+        # ret = {"support":[], "target":[]}
+        # for i, cur_class in enumerate(classes):  # each class
+        #     # Count number of times this class is inside the meta-test
+        #     n_test_samples = np.sum(cur_class == x_hat_class)
+        #     example_idxs = np.random.choice(len(self.data_classes[cur_class]), self.samples_per_class + n_test_samples, False)
+
+        #     # meta-training
+        #     for eid in example_idxs[:self.samples_per_class]:
+        #         absolute_eid = self.data_classes[cur_class][eid]["idx"]
+        #         example_video = self._get_video(absolute_eid)  # dict
+        #         example_video["label"] = i  # relative label
+        #         ret["support"].append(example_video)
+
+        #     # meta-test
+        #     for eid in example_inds[self.samples_per_class:]:
+        #         absolute_eid = self.data_classes[cur_class][eid]["idx"]
+        #         example_video = self._get_video(absolute_eid)  # dict
+        #         example_video["label"] = i  # relative label
+        #         ret["target"].append(example_video)
+
+        # ret = {"support":{"frames": [], "labels": []}, 
+        #         "target":{"frames": [], "labels": []}}
+
+        support_x = []
+        support_y = []
+        target_x = []
+        target_y = []
+
         for i, cur_class in enumerate(classes):  # each class
             # Count number of times this class is inside the meta-test
             n_test_samples = np.sum(cur_class == x_hat_class)
@@ -153,14 +180,35 @@ class KineticsNShot(torch.utils.data.Dataset):
                 absolute_eid = self.data_classes[cur_class][eid]["idx"]
                 example_video = self._get_video(absolute_eid)  # dict
                 example_video["label"] = i  # relative label
-                ret["support"].append(example_video)
+                # ret["support"]["frames"].append(example_video["frames"][0])
+                # ret["support"]["labels"].append(example_video["label"])
+                support_x.append(example_video["frames"][0])
+                support_y.append(example_video["label"])
 
             # meta-test
-            for eid in example_inds[self.samples_per_class:]:
+            for eid in example_idxs[self.samples_per_class:]:
                 absolute_eid = self.data_classes[cur_class][eid]["idx"]
                 example_video = self._get_video(absolute_eid)  # dict
+                # print(type(example_video["frames"]))  # list, length=1 i.e. l[0] of size 3,8,224,224
+                # print(type(example_video["label"]))   # int
                 example_video["label"] = i  # relative label
-                ret["target"].append(example_video)
+                # ret["target"]["frames"].append(example_video["frames"][0])
+                # ret["target"]["labels"].append(example_video["label"])
+                target_x.append(example_video["frames"][0])
+                target_y.append(example_video["label"])
+
+        support_x = torch.stack(support_x)
+        support_y = torch.tensor(support_y)
+        target_x = torch.stack(target_x)
+        target_y = torch.tensor(target_y)
+        
+        # print(support_x.size())
+        # print(support_y.size())
+        # print(target_x.size())
+        # print(target_y.size())
+
+        # return ret
+        return support_x, support_y, target_x, target_y
 
     def _get_video(self, index):
         """
@@ -256,7 +304,8 @@ class KineticsNShot(torch.utils.data.Dataset):
 
             label = self._labels[index]
             frames = utils.pack_pathway_output(self.cfg, frames)
-            return frames, label, index, {}
+            # return frames, label, index, {}
+            return {"frames": frames, "label": label, "index": index}
         else:
             raise RuntimeError(
                 "Failed to fetch video after {} retries.".format(self._num_retries)
@@ -267,7 +316,7 @@ class KineticsNShot(torch.utils.data.Dataset):
         Returns:
             (int): the number of videos in the dataset.
         """
-        return len(self._path_to_videos)
+        return self.cfg.FEW_SHOT.EPOCH_LEN
 
     def spatial_sampling(
         self, frames, spatial_idx=-1, min_scale=256, max_scale=320, crop_size=224,

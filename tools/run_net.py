@@ -15,8 +15,11 @@ import pyaction.utils.multiprocessing as mpu
 
 from config import config
 from test_net import test
-from train_net import train
 
+if hasattr(config, "FEW_SHOT"):
+    from train_net_fewshot import train
+else:
+    from train_net import train
 
 # from pyaction.config.defaults import get_cfg
 

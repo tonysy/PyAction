@@ -394,6 +394,11 @@ class ResNetModel(nn.Module):
                 comments of the config file.
         """
         super(ResNetModel, self).__init__()
+
+        # Few-shot
+        self.get_feature = hasattr(cfg.RESNET, "GET_FEATURE") and cfg.RESNET.GET_FEATURE
+        self.feature_dim = cfg.RESNET.FEATURE_DIM if self.get_feature else None
+
         self.enable_detection = cfg.DETECTION.ENABLE
         self.num_pathways = 1
         self._construct_network(cfg)
@@ -537,6 +542,9 @@ class ResNetModel(nn.Module):
                     ]
                 ],
                 dropout_rate=cfg.MODEL.DROPOUT_RATE,
+                # few-shot
+                get_feature=self.get_feature,
+                feature_dim=self.feature_dim
             )
 
     def forward(self, x, bboxes=None):
@@ -548,6 +556,7 @@ class ResNetModel(nn.Module):
         x = self.s3(x)
         x = self.s4(x)
         x = self.s5(x)
+
         if self.enable_detection:
             x = self.head(x, bboxes)
         else:

@@ -138,8 +138,8 @@ class ResNetBasicHead(nn.Module):
     """
 
     def __init__(
-        self, dim_in, num_classes, pool_size, dropout_rate=0.0, act_func="softmax",
-    ):
+        self, dim_in, num_classes, pool_size, dropout_rate=0.0, act_func="softmax",\
+            get_feature=False, feature_dim=None):
         """
         The `__init__` method of any subclass should also contain these
             arguments.
@@ -157,12 +157,19 @@ class ResNetBasicHead(nn.Module):
                 dropout.
             act_func (string): activation function to use. 'softmax': applies
                 softmax on the output. 'sigmoid': applies sigmoid on the output.
+
+            Few-shot:
+            get_feature: whether to return feature vector
+            feature_dim: length of the feature vector
         """
         super(ResNetBasicHead, self).__init__()
         assert (
             len({len(pool_size), len(dim_in)}) == 1
         ), "pathway dimensions are not consistent."
         self.num_pathways = len(pool_size)
+
+        self.get_feature = get_feature
+        self.feature_dim = feature_dim
 
         for pathway in range(self.num_pathways):
             avg_pool = nn.AvgPool3d(pool_size[pathway], stride=1)
@@ -172,7 +179,11 @@ class ResNetBasicHead(nn.Module):
             self.dropout = nn.Dropout(dropout_rate)
         # Perform FC in a fully convolutional manner. The FC layer will be
         # initialized with a different std comparing to convolutional layers.
-        self.projection = nn.Linear(sum(dim_in), num_classes, bias=True)
+
+        if self.get_feature:
+            self.projection = nn.Linear(sum(dim_in), feature_dim, bias=True)
+        else:
+            self.projection = nn.Linear(sum(dim_in), num_classes, bias=True)
 
         # Softmax for evaluation and testing.
         if act_func == "softmax":
@@ -198,12 +209,14 @@ class ResNetBasicHead(nn.Module):
         # Perform dropout.
         if hasattr(self, "dropout"):
             x = self.dropout(x)
+
         x = self.projection(x)
 
-        # Performs fully convlutional inference.
-        if not self.training:
-            x = self.act(x)
-            x = x.mean([1, 2, 3])
+        if not self.get_feature:
+            # Performs fully convlutional inference.
+            if not self.training:
+                x = self.act(x)
+                x = x.mean([1, 2, 3])
 
         x = x.view(x.shape[0], -1)
         return x

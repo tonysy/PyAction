@@ -117,16 +117,16 @@ def log_model_info(model, cfg, is_train=True, writer=None):
     """
     num_param = params_count(model)
     num_mem = gpu_mem_usage()
-    num_gflops = get_flop_stats(model, cfg, is_train, writer)
+    # num_gflops = get_flop_stats(model, cfg, is_train, writer)
 
     logger.info("Model:\n{}".format(model))
     logger.info("Params: {:,}".format(num_param))
     logger.info("Mem: {:,} MB".format(num_mem))
-    logger.info("FLOPs: {:,} GFLOPs".format(num_gflops))
+    # logger.info("FLOPs: {:,} GFLOPs".format(num_gflops))
     if writer is not None:
         writer.add_scalar("Model/Params", num_param, 1)
         writer.add_scalar("Model/Memory", num_mem, 1)
-        writer.add_scalar("Model/GFlops", num_gflops, 1)
+        # writer.add_scalar("Model/GFlops", num_gflops, 1)
 
     logger.info("nvidia-smi")
     os.system("nvidia-smi")
