@@ -25,7 +25,6 @@ from pyaction.datasets import loader
 
 # from pyaction.models import model_builder
 from pyaction.utils.meters import AVAMeter, TrainMeter, ValMeter
-
 from net import build_model
 
 
