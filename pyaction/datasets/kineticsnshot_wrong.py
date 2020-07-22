@@ -141,6 +141,30 @@ class Kineticsnshot(torch.utils.data.Dataset):
         # select classes for each test sample
         x_hat_class = np.random.choice(classes, self.samples_per_class, True)
 
+        # return a dict
+        # ret = {"support":[], "target":[]}
+        # for i, cur_class in enumerate(classes):  # each class
+        #     # Count number of times this class is inside the meta-test
+        #     n_test_samples = np.sum(cur_class == x_hat_class)
+        #     example_idxs = np.random.choice(len(self.data_classes[cur_class]), self.samples_per_class + n_test_samples, False)
+
+        #     # meta-training
+        #     for eid in example_idxs[:self.samples_per_class]:
+        #         absolute_eid = self.data_classes[cur_class][eid]["idx"]
+        #         example_video = self._get_video(absolute_eid)  # dict
+        #         example_video["label"] = i  # relative label
+        #         ret["support"].append(example_video)
+
+        #     # meta-test
+        #     for eid in example_inds[self.samples_per_class:]:
+        #         absolute_eid = self.data_classes[cur_class][eid]["idx"]
+        #         example_video = self._get_video(absolute_eid)  # dict
+        #         example_video["label"] = i  # relative label
+        #         ret["target"].append(example_video)
+
+        # ret = {"support":{"frames": [], "labels": []}, 
+        #         "target":{"frames": [], "labels": []}}
+
         support_x = []
         support_y = []
         target_x = []
@@ -149,46 +173,27 @@ class Kineticsnshot(torch.utils.data.Dataset):
         for i, cur_class in enumerate(classes):  # each class
             # Count number of times this class is inside the meta-test
             n_test_samples = np.sum(cur_class == x_hat_class)
-            # example_idxs = np.random.choice(len(self.data_classes[cur_class]), self.samples_per_class + n_test_samples + self._num_retries, False)
+            example_idxs = np.random.choice(len(self.data_classes[cur_class]), self.samples_per_class + n_test_samples, False)
 
-            example_idxs = np.random.permutation(len(self.data_classes[cur_class]))
-
-            j = 0
             # meta-training
-            for _ in range(self.samples_per_class):
-                for __ in range(self._num_retries):
-                    if j >= len(example_idxs):
-                        raise RuntimeError("Running out of candidate videos.")
-                    eid = example_idxs[j]
-                    absolute_eid = self.data_classes[cur_class][j]["idx"]
-                    example_video = self._get_video(absolute_eid)  # dict
-                    j += 1
-                    if example_video:
-                        break
-                if not example_video:
-                    raise RuntimeError("Failed to fetch video after {} retries.".format(self._num_retries))
-    
+            for eid in example_idxs[:self.samples_per_class]:
+                absolute_eid = self.data_classes[cur_class][eid]["idx"]
+                example_video = self._get_video(absolute_eid)  # dict
                 example_video["label"] = i  # relative label
                 # ret["support"]["frames"].append(example_video["frames"][0])
                 # ret["support"]["labels"].append(example_video["label"])
                 support_x.append(example_video["frames"][0])
                 support_y.append(example_video["label"])
 
-            # meta-testing
-            for _ in range(n_test_samples):
-                for __ in range(self._num_retries):
-                    if j >= len(example_idxs):
-                        raise RuntimeError("Running out of candidate videos.")
-                    eid = example_idxs[j]
-                    absolute_eid = self.data_classes[cur_class][j]["idx"]
-                    example_video = self._get_video(absolute_eid)  # dict
-                    j += 1
-                    if example_video:
-                        break
-                if not example_video:
-                    raise RuntimeError("Failed to fetch video after {} retries.".format(self._num_retries))
-    
+            # meta-test
+            for eid in example_idxs[self.samples_per_class:]:
+                absolute_eid = self.data_classes[cur_class][eid]["idx"]
+                example_video = self._get_video(absolute_eid)  # dict
+                # print(type(example_video["frames"]))  # list, length=1 i.e. l[0] of size 3,8,224,224
+                # print(type(example_video["label"]))   # int
                 example_video["label"] = i  # relative label
+                # ret["target"]["frames"].append(example_video["frames"][0])
+                # ret["target"]["labels"].append(example_video["label"])
                 target_x.append(example_video["frames"][0])
                 target_y.append(example_video["label"])
 
@@ -246,57 +251,65 @@ class Kineticsnshot(torch.utils.data.Dataset):
 
         # Try to decode and sample a clip from a video. If the video can not be
         # decoded, repeatly find a random video replacement that can be decoded.
-        
-        video_container = None
-        try:
-            video_container = container.get_video_container(
-                self._path_to_videos[index],
-                self.cfg.DATA_LOADER.ENABLE_MULTI_THREAD_DECODE,
-            )
-        except Exception as e:
-            logger.info(
-                "Failed to load video from {} with error {}".format(
-                    self._path_to_videos[index], e
+        for _ in range(self._num_retries):
+            video_container = None
+            try:
+                video_container = container.get_video_container(
+                    self._path_to_videos[index],
+                    self.cfg.DATA_LOADER.ENABLE_MULTI_THREAD_DECODE,
                 )
+            except Exception as e:
+                logger.info(
+                    "Failed to load video from {} with error {}".format(
+                        self._path_to_videos[index], e
+                    )
+                )
+            # Select a random video if the current video was not able to access.
+            if video_container is None:
+                index = random.randint(0, len(self._path_to_videos) - 1)
+                continue
+
+            # Decode video. Meta info is used to perform selective decoding.
+            frames = decoder.decode(
+                video_container,
+                self.cfg.DATA.SAMPLING_RATE,
+                self.cfg.DATA.NUM_FRAMES,
+                temporal_sample_index,
+                self.cfg.TEST.NUM_ENSEMBLE_VIEWS,
+                video_meta=self._video_meta[index],
+                target_fps=30,
             )
-            return False
 
-        # Decode video. Meta info is used to perform selective decoding.
-        frames = decoder.decode(
-            video_container,
-            self.cfg.DATA.SAMPLING_RATE,
-            self.cfg.DATA.NUM_FRAMES,
-            temporal_sample_index,
-            self.cfg.TEST.NUM_ENSEMBLE_VIEWS,
-            video_meta=self._video_meta[index],
-            target_fps=30,
-        )
+            # If decoding failed (wrong format, video is too short, and etc),
+            # select another video.
+            if frames is None:
+                index = random.randint(0, len(self._path_to_videos) - 1)
+                continue
 
-        # If decoding failed (wrong format, video is too short, and etc),
-        if frames is None:
-            return False
+            # Perform color normalization.
+            frames = frames.float()
+            frames = frames / 255.0
+            frames = frames - torch.tensor(self.cfg.DATA.MEAN)
+            frames = frames / torch.tensor(self.cfg.DATA.STD)
+            # T H W C -> C T H W.
+            frames = frames.permute(3, 0, 1, 2)
+            # Perform data augmentation.
+            frames = self.spatial_sampling(
+                frames,
+                spatial_idx=spatial_sample_index,
+                min_scale=min_scale,
+                max_scale=max_scale,
+                crop_size=crop_size,
+            )
 
-        # Perform color normalization.
-        frames = frames.float()
-        frames = frames / 255.0
-        frames = frames - torch.tensor(self.cfg.DATA.MEAN)
-        frames = frames / torch.tensor(self.cfg.DATA.STD)
-        # T H W C -> C T H W.
-        frames = frames.permute(3, 0, 1, 2)
-        # Perform data augmentation.
-        frames = self.spatial_sampling(
-            frames,
-            spatial_idx=spatial_sample_index,
-            min_scale=min_scale,
-            max_scale=max_scale,
-            crop_size=crop_size,
-        )
-
-        label = self._labels[index]
-        frames = utils.pack_pathway_output(self.cfg, frames)
-        # return frames, label, index, {}
-        return {"frames": frames, "label": label, "index": index}
-
+            label = self._labels[index]
+            frames = utils.pack_pathway_output(self.cfg, frames)
+            # return frames, label, index, {}
+            return {"frames": frames, "label": label, "index": index}
+        else:
+            raise RuntimeError(
+                "Failed to fetch video after {} retries.".format(self._num_retries)
+            )
     
     def __len__(self):
         """
