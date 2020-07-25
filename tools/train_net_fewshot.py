@@ -353,7 +353,7 @@ def train(cfg):
         logger.info("Load from given checkpoint file.")
         checkpoint_epoch = cu.load_checkpoint(
             cfg.TRAIN.CHECKPOINT_FILE_PATH,
-            model,
+            model.module.g,
             cfg.NUM_GPUS > 1,
             optimizer,
             inflation=cfg.TRAIN.CHECKPOINT_INFLATE,

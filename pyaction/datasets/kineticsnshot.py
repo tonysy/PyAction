@@ -160,7 +160,8 @@ class Kineticsnshot(torch.utils.data.Dataset):
                     if j >= len(example_idxs):
                         raise RuntimeError("Running out of candidate videos.")
                     eid = example_idxs[j]
-                    absolute_eid = self.data_classes[cur_class][j]["idx"]
+                    absolute_eid = self.data_classes[cur_class][eid]["idx"]
+                    # print(cur_class, eid, absolute_eid, "\n")
                     example_video = self._get_video(absolute_eid)  # dict
                     j += 1
                     if example_video:
@@ -180,7 +181,7 @@ class Kineticsnshot(torch.utils.data.Dataset):
                     if j >= len(example_idxs):
                         raise RuntimeError("Running out of candidate videos.")
                     eid = example_idxs[j]
-                    absolute_eid = self.data_classes[cur_class][j]["idx"]
+                    absolute_eid = self.data_classes[cur_class][eid]["idx"]
                     example_video = self._get_video(absolute_eid)  # dict
                     j += 1
                     if example_video:

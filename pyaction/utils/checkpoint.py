@@ -131,6 +131,11 @@ def inflate_weight(state_dict_2d, state_dict_3d):
         state_dict_inflated (OrderedDict): a dict of inflated parameters.
     """
     state_dict_inflated = OrderedDict()
+
+    # for k, v2d in state_dict_2d.items():
+    #     if not k in state_dict_3d:
+    #         print(k, "!!!!!!!!!!!")
+
     for k, v2d in state_dict_2d.items():
         assert k in state_dict_3d.keys()
         v3d = state_dict_3d[k]
@@ -174,7 +179,9 @@ def load_checkpoint(
         path_to_checkpoint
     )
     # Account for the DDP wrapper in the multi-gpu setting.
-    ms = model.module if data_parallel else model
+    # ms = model.module if data_parallel else model
+    ms = model.module if hasattr(model, "module") else model
+
     if convert_from_caffe2:
         with open(path_to_checkpoint, "rb") as f:
             caffe2_checkpoint = pickle.load(f, encoding="latin1")
@@ -218,7 +225,8 @@ def load_checkpoint(
         if inflation:
             # Try to inflate the model.
             model_state_dict_3d = (
-                model.module.state_dict() if data_parallel else model.state_dict()
+                # model.module.state_dict() if data_parallel else model.state_dict()
+                model.module.state_dict() if hasattr(model, "module") else model.state_dict()
             )
             inflated_model_dict = inflate_weight(
                 checkpoint["model_state"], model_state_dict_3d
