@@ -45,6 +45,7 @@ _config_dict = dict(
         PIN_MEMORY=True,
         # ENABLE_MULTI_THREAD_DECODE=True
     ),
+    DIST_MULTIPROCESS=True,
     NUM_GPUS=4,
     NUM_SHARDS=1,
     RNG_SEED=0,
