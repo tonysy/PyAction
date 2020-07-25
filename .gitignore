@@ -6,7 +6,7 @@
 .vscode/
 *.csv
 workspace/
-model_zoo/
+model_zoo
 
 data/ava/annotations
 data/ava/ava_annotations
