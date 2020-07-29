@@ -51,7 +51,7 @@ _config_dict = dict(
         BASE_LR=0.001,
         LR_POLICY="steps_with_relative_lrs",
         STEPS=[0, 29, 59, 89],
-        LRS=[1, 0.1, 0.01, 0.001],
+        LRS=[1, 1, 1, 1],
         MAX_EPOCH=500, # 120!
     ),
     MODEL=dict(ARCH="c2d", NUM_CLASSES=400,),
@@ -74,7 +74,7 @@ _config_dict = dict(
         EPOCH_LEN=1500,
         CLASSES_PER_SET=5,
         SAMPLES_PER_CLASS=1,
-        FCE=True,  #######################
+        FCE=False,  #######################
     )
 )
 

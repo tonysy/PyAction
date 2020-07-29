@@ -10,9 +10,9 @@ _config_dict = dict(
     ),
     TRAIN=dict(
         DATASET="Kineticsnshot", 
-        BATCH_SIZE=8, #64
+        BATCH_SIZE=2, #64
         EVAL_PERIOD=10, 
-        CHECKPOINT_PERIOD=10,
+        CHECKPOINT_PERIOD=10,  # 1
         CHECKPOINT_FILE_PATH=osp.join(
             "/",
             *osp.realpath(pyaction.__file__).split("/")[:-2],
@@ -62,7 +62,7 @@ _config_dict = dict(
         # ENABLE_MULTI_THREAD_DECODE=True
     ),
     DIST_MULTIPROCESS=True,
-    NUM_GPUS=4, ############################
+    NUM_GPUS=1, ############################
     NUM_SHARDS=1,
     RNG_SEED=0,
     OUTPUT_DIR=osp.join(
@@ -74,8 +74,9 @@ _config_dict = dict(
         EPOCH_LEN=1500,
         CLASSES_PER_SET=5,
         SAMPLES_PER_CLASS=1,
-        FCE=True,  #######################
-    )
+        FCE=False,  #######################
+    ),
+    DEBUG=True
 )
 
 

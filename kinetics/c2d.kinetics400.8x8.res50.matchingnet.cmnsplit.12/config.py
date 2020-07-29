@@ -13,16 +13,16 @@ _config_dict = dict(
         BATCH_SIZE=8, #64
         EVAL_PERIOD=10, 
         CHECKPOINT_PERIOD=10,
-        CHECKPOINT_FILE_PATH=osp.join(
-            "/",
-            *osp.realpath(pyaction.__file__).split("/")[:-2],
-            "model_zoo/R50_IN1K.pyth",
-        ),
+        # CHECKPOINT_FILE_PATH=osp.join(
+        #     "/",
+        #     *osp.realpath(pyaction.__file__).split("/")[:-2],
+        #     "model_zoo/R50_IN1K.pyth",
+        # ),
         CHECKPOINT_INFLATE=True,
     ), 
     DATA=dict(
         PATH_TO_DATA_DIR=osp.join(
-            "/", *osp.realpath(pyaction.__file__).split("/")[:-2], "data/kineticsnshot"
+            "/", *osp.realpath(pyaction.__file__).split("/")[:-2], "data/kineticsnshot/cmn"
         ),
         NUM_FRAMES=8,
         SAMPLING_RATE=8,
@@ -48,11 +48,11 @@ _config_dict = dict(
     ),
     # SOLVER=dict(BASE_LR=0.1, LR_POLICY="cosine", MAX_EPOCH=1000, WARMUP_EPOCHS=34,),  # without Imagetnet
     SOLVER=dict(
-        BASE_LR=0.001,
+        BASE_LR=0.01,
         LR_POLICY="steps_with_relative_lrs",
         STEPS=[0, 29, 59, 89],
-        LRS=[1, 0.1, 0.01, 0.001],
-        MAX_EPOCH=500, # 120!
+        LRS=[1, 1, 1, 1],
+        MAX_EPOCH=5000, # 120!
     ),
     MODEL=dict(ARCH="c2d", NUM_CLASSES=400,),
     TEST=dict(ENABLE=True, DATASET="Kineticsnshot", BATCH_SIZE=64),
@@ -74,7 +74,7 @@ _config_dict = dict(
         EPOCH_LEN=1500,
         CLASSES_PER_SET=5,
         SAMPLES_PER_CLASS=1,
-        FCE=True,  #######################
+        FCE=False,  #######################
     )
 )
 

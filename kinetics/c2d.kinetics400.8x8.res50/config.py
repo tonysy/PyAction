@@ -8,7 +8,7 @@ _config_dict = dict(
     BN=dict(
         USE_PRECISE_STATS=True, NUM_BATCHES_PRECISE=200, MOMENTUM=0.1, WEIGHT_DECAY=0.0,
     ),
-    TRAIN=dict(DATASET="kinetics", BATCH_SIZE=8, EVAL_PERIOD=10, CHECKPOINT_PERIOD=1,), #64
+    TRAIN=dict(DATASET="kinetics", BATCH_SIZE=8, EVAL_PERIOD=10, CHECKPOINT_PERIOD=50,), #bs=64 ################
     DATA=dict(
         PATH_TO_DATA_DIR=osp.join(
             "/", *osp.realpath(pyaction.__file__).split("/")[:-2], "data/kinetics"

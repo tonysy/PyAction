@@ -51,11 +51,20 @@ _config_dict = dict(
         BASE_LR=0.001,
         LR_POLICY="steps_with_relative_lrs",
         STEPS=[0, 29, 59, 89],
-        LRS=[1, 0.1, 0.01, 0.001],
-        MAX_EPOCH=500, # 120!
+        LRS=[1, 1, 1, 1],
+        MAX_EPOCH=5000, # 120!
     ),
     MODEL=dict(ARCH="c2d", NUM_CLASSES=400,),
-    TEST=dict(ENABLE=True, DATASET="Kineticsnshot", BATCH_SIZE=64),
+    TEST=dict(
+        ENABLE=True, 
+        DATASET="Kineticsnshot", 
+        BATCH_SIZE=4,  # 64
+        CHECKPOINT_FILE_PATH=osp.join(
+            "/",
+            *osp.realpath(pyaction.__file__).split("/")[:-2],
+            "model_zoo/R50_IN1K.pyth",
+        ),
+    ),  
     DATA_LOADER=dict(
         NUM_WORKERS=8,
         PIN_MEMORY=True,
@@ -74,8 +83,9 @@ _config_dict = dict(
         EPOCH_LEN=1500,
         CLASSES_PER_SET=5,
         SAMPLES_PER_CLASS=1,
-        FCE=True,  #######################
-    )
+        FCE=False,  #######################
+    ),
+    TEST_DEBUG=True,
 )
 
 

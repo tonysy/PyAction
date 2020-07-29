@@ -12,7 +12,7 @@ _config_dict = dict(
         DATASET="kinetics",
         BATCH_SIZE=64,
         EVAL_PERIOD=10,
-        CHECKPOINT_PERIOD=1,
+        CHECKPOINT_PERIOD=50,
         CHECKPOINT_FILE_PATH=osp.join(
             "/",
             *osp.realpath(pyaction.__file__).split("/")[:-2],

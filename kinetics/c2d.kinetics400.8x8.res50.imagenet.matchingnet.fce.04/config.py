@@ -48,10 +48,10 @@ _config_dict = dict(
     ),
     # SOLVER=dict(BASE_LR=0.1, LR_POLICY="cosine", MAX_EPOCH=1000, WARMUP_EPOCHS=34,),  # without Imagetnet
     SOLVER=dict(
-        BASE_LR=0.001,
+        BASE_LR=0.01,
         LR_POLICY="steps_with_relative_lrs",
         STEPS=[0, 29, 59, 89],
-        LRS=[1, 0.1, 0.01, 0.001],
+        LRS=[1, 1, 1, 1],
         MAX_EPOCH=500, # 120!
     ),
     MODEL=dict(ARCH="c2d", NUM_CLASSES=400,),
