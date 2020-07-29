@@ -414,6 +414,9 @@ class ResNetModel(nn.Module):
             cfg (CfgNode): model building configs, details are in the
                 comments of the config file.
         """
+
+        self.debug = hasattr(cfg, "DEBUG")
+
         assert cfg.MODEL.ARCH in _POOL1.keys()
         pool_size = _POOL1[cfg.MODEL.ARCH]
         assert len({len(pool_size), self.num_pathways}) == 1
@@ -544,7 +547,8 @@ class ResNetModel(nn.Module):
                 dropout_rate=cfg.MODEL.DROPOUT_RATE,
                 # few-shot
                 get_feature=self.get_feature,
-                feature_dim=self.feature_dim
+                feature_dim=self.feature_dim,
+                debug=self.debug,
             )
 
     def forward(self, x, bboxes=None):
@@ -561,4 +565,5 @@ class ResNetModel(nn.Module):
             x = self.head(x, bboxes)
         else:
             x = self.head(x)
+
         return x

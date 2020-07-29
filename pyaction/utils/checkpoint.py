@@ -58,14 +58,15 @@ def get_last_checkpoint(path_to_job):
     Args:
         path_to_job (string): the path to the folder of the current job.
     """
-
     d = get_checkpoint_dir(path_to_job)
     names = os.listdir(d) if os.path.exists(d) else []
     names = [f for f in names if "checkpoint" in f]
     assert len(names), "No checkpoints found in '{}'.".format(d)
     # Sort the checkpoints by epoch.
     name = sorted(names)[-1]
-    return os.path.join(d, name)
+    cpath = os.path.join(d, name)
+    print("Loading from {}..".format(cpath))
+    return cpath
 
 
 def has_checkpoint(path_to_job):
@@ -132,11 +133,13 @@ def inflate_weight(state_dict_2d, state_dict_3d):
     """
     state_dict_inflated = OrderedDict()
 
-    # for k, v2d in state_dict_2d.items():
-    #     if not k in state_dict_3d:
-    #         print(k, "!!!!!!!!!!!")
+    for k, v2d in state_dict_2d.items():
+        if not k in state_dict_3d:
+            print(k, "!!!!!!!!!!!")
 
     for k, v2d in state_dict_2d.items():
+        if k.startswith("head.projection") and k not in state_dict_3d.keys():  # few-shot
+            continue
         assert k in state_dict_3d.keys()
         v3d = state_dict_3d[k]
         # Inflate the weight of 2D conv to 3D conv.

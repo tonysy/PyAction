@@ -79,8 +79,13 @@ class Kineticsnshot(torch.utils.data.Dataset):
         """
         Construct the video loader.
         """
+        if self.mode == "test" and hasattr(self.cfg, "TEST_DEBUG") and self.cfg.TEST_DEBUG:
+            name = "debug"
+        else:
+            name = self.mode
+
         path_to_file = os.path.join(
-            self.cfg.DATA.PATH_TO_DATA_DIR, "{}.csv".format(self.mode)
+            self.cfg.DATA.PATH_TO_DATA_DIR, "{}.csv".format(name)
         )
         assert os.path.exists(path_to_file), "{} dir not found".format(path_to_file)
 

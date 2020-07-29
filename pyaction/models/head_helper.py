@@ -139,7 +139,8 @@ class ResNetBasicHead(nn.Module):
 
     def __init__(
         self, dim_in, num_classes, pool_size, dropout_rate=0.0, act_func="softmax",\
-            get_feature=False, feature_dim=None):
+            get_feature=False, feature_dim=None, debug=False):
+        self.debug = debug
         """
         The `__init__` method of any subclass should also contain these
             arguments.
@@ -180,9 +181,7 @@ class ResNetBasicHead(nn.Module):
         # Perform FC in a fully convolutional manner. The FC layer will be
         # initialized with a different std comparing to convolutional layers.
 
-        if self.get_feature:
-            self.projection = nn.Linear(sum(dim_in), feature_dim, bias=True)
-        else:
+        if not self.get_feature:
             self.projection = nn.Linear(sum(dim_in), num_classes, bias=True)
 
         # Softmax for evaluation and testing.
@@ -210,13 +209,20 @@ class ResNetBasicHead(nn.Module):
         if hasattr(self, "dropout"):
             x = self.dropout(x)
 
-        x = self.projection(x)
-
         if not self.get_feature:
+            x = self.projection(x)
             # Performs fully convlutional inference.
             if not self.training:
                 x = self.act(x)
                 x = x.mean([1, 2, 3])
 
-        x = x.view(x.shape[0], -1)
+        # x = x.view(x.shape[0], -1)
+        # when test:
+        # RuntimeError: view size is not compatible with input tensor's size and stride 
+        # (at least one dimension spans across two contiguous subspaces). Use .reshape(...) instead.
+        x = x.reshape(x.shape[0], -1)
+
+        if self.debug:
+            import pdb; pdb.set_trace()
+
         return x

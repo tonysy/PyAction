@@ -353,7 +353,7 @@ def train(cfg):
         logger.info("Load from given checkpoint file.")
         checkpoint_epoch = cu.load_checkpoint(
             cfg.TRAIN.CHECKPOINT_FILE_PATH,
-            model.module.g,
+            model.module.g if hasattr(model, "module") else model.g,
             cfg.NUM_GPUS > 1,
             optimizer,
             inflation=cfg.TRAIN.CHECKPOINT_INFLATE,
@@ -396,6 +396,7 @@ def train(cfg):
         # Save a checkpoint.
         if cu.is_checkpoint_epoch(cur_epoch, cfg.TRAIN.CHECKPOINT_PERIOD):
             cu.save_checkpoint(cfg.OUTPUT_DIR, model, optimizer, cur_epoch, cfg)
+            
         # Evaluate the model on validation set.
         if misc.is_eval_epoch(cfg, cur_epoch):
             eval_epoch(val_loader, model, val_meter, cur_epoch, cfg, writer)
