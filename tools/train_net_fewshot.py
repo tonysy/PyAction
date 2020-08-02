@@ -48,6 +48,7 @@ def train_epoch(train_loader, model, optimizer, train_meter, cur_epoch, cfg, wri
     data_size = len(train_loader)
 
     for cur_iter, (support_x, support_y, target_x, target_y) in enumerate(train_loader):  # data_dict
+
         # tensor size checked.
         # support_x: (batchsize, classes_per_set * samples_per_class, 3, 8, 224, 224)
         # support_y: (batchsize, classes_per_set * samples_per_class)
@@ -101,11 +102,15 @@ def train_epoch(train_loader, model, optimizer, train_meter, cur_epoch, cfg, wri
         # Record loss computation time
         train_meter.iter_loss_toc()
 
-        # Perform the backward pass.
-        optimizer.zero_grad()
-        loss.backward()
-        # Update the parameters.
-        optimizer.step()
+        if hasattr(cfg, "NO_TRAIN") and cfg.NO_TRAIN:
+            pass
+        else:
+            # Perform the backward pass.
+            optimizer.zero_grad()
+            loss.backward()
+            # Update the parameters.
+            optimizer.step()
+            
         # Record network backward time
         train_meter.iter_backward_toc()
 
@@ -142,10 +147,22 @@ def train_epoch(train_loader, model, optimizer, train_meter, cur_epoch, cfg, wri
             #     top1_err, top5_err, loss, lr, inputs[0].size(0) * cfg.NUM_GPUS
             # )
 
+            # print("before reduce: {}".format(acc))
 
             # Gather all the predictions across all the devices.
             if cfg.NUM_GPUS > 1:
                 loss, acc = du.all_reduce([loss, acc])
+
+            # print("after reduce: {}".format(acc))
+            # it works like, e.g.
+            # before reduce: 1.0
+            # before reduce: 0.0
+            # before reduce: 0.0
+            # before reduce: 0.0
+            # after reduce: 0.25
+            # after reduce: 0.25
+            # after reduce: 0.25
+            # after reduce: 0.25
 
             # Copy the stats from GPU to CPU (sync point).
             loss, acc = (

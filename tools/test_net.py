@@ -183,6 +183,8 @@ def perform_test(test_loader, model, test_meter, cfg):
             else:
                 acc = acc.item()
 
+            # print(acc)
+
             # debug
             acc_list.append(acc)
 
@@ -301,7 +303,14 @@ def test(cfg):
         )
 
     # # Perform multi-view test on the entire dataset.
-    print(perform_test(test_loader, model, test_meter, cfg), "!!!!!!!!!!!!!!!!!!!")
+
+    n_test = 1
+    results = []
+    for i in range(n_test):
+        results.append(perform_test(test_loader, model, test_meter, cfg))
+        print(results[-1])
+
+    print(sum(results)/len(results), "!!!!!!!!!!!!")
 
 
 def main():
