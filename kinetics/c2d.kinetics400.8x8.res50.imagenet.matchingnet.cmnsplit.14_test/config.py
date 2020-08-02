@@ -10,7 +10,7 @@ _config_dict = dict(
     ),
     TRAIN=dict(
         DATASET="Kineticsnshot", 
-        BATCH_SIZE=8, #64
+        BATCH_SIZE=4, #64
         EVAL_PERIOD=10, 
         CHECKPOINT_PERIOD=10,
         CHECKPOINT_FILE_PATH=osp.join(
@@ -48,7 +48,7 @@ _config_dict = dict(
     ),
     # SOLVER=dict(BASE_LR=0.1, LR_POLICY="cosine", MAX_EPOCH=1000, WARMUP_EPOCHS=34,),  # without Imagetnet
     SOLVER=dict(
-        BASE_LR=0.01,
+        BASE_LR=0.0001,
         LR_POLICY="steps_with_relative_lrs",
         STEPS=[0, 29, 59, 89],
         LRS=[1, 1, 1, 1],
@@ -61,11 +61,11 @@ _config_dict = dict(
         DATASET="Kineticsnshot", 
         BATCH_SIZE=4,  # 64
         # use pretrained model
-        CHECKPOINT_FILE_PATH=osp.join(
-            "/",
-            *osp.realpath(pyaction.__file__).split("/")[:-2],
-            "model_zoo/R50_IN1K.pyth",
-        ),
+        # CHECKPOINT_FILE_PATH=osp.join(
+        #     "/",
+        #     *osp.realpath(pyaction.__file__).split("/")[:-2],
+        #     "model_zoo/R50_IN1K.pyth",
+        # ),
     ),
     DATA_LOADER=dict(
         NUM_WORKERS=8,

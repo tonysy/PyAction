@@ -13,11 +13,11 @@ _config_dict = dict(
         BATCH_SIZE=8, #64
         EVAL_PERIOD=10, 
         CHECKPOINT_PERIOD=10,
-        CHECKPOINT_FILE_PATH=osp.join(
-            "/",
-            *osp.realpath(pyaction.__file__).split("/")[:-2],
-            "model_zoo/R50_IN1K.pyth",
-        ),
+        # CHECKPOINT_FILE_PATH=osp.join(
+        #     "/",
+        #     *osp.realpath(pyaction.__file__).split("/")[:-2],
+        #     "model_zoo/R50_IN1K.pyth",
+        # ),
         CHECKPOINT_INFLATE=True,
     ), 
     DATA=dict(
@@ -48,25 +48,14 @@ _config_dict = dict(
     ),
     # SOLVER=dict(BASE_LR=0.1, LR_POLICY="cosine", MAX_EPOCH=1000, WARMUP_EPOCHS=34,),  # without Imagetnet
     SOLVER=dict(
-        BASE_LR=0.01,
+        BASE_LR=0.1,
         LR_POLICY="steps_with_relative_lrs",
         STEPS=[0, 29, 59, 89],
         LRS=[1, 1, 1, 1],
         MAX_EPOCH=5000, # 120!
     ),
     MODEL=dict(ARCH="c2d", NUM_CLASSES=400,),
-    # TEST=dict(ENABLE=True, DATASET="Kineticsnshot", BATCH_SIZE=4),
-    TEST=dict(
-        ENABLE=True, 
-        DATASET="Kineticsnshot", 
-        BATCH_SIZE=4,  # 64
-        # use pretrained model
-        CHECKPOINT_FILE_PATH=osp.join(
-            "/",
-            *osp.realpath(pyaction.__file__).split("/")[:-2],
-            "model_zoo/R50_IN1K.pyth",
-        ),
-    ),
+    TEST=dict(ENABLE=True, DATASET="Kineticsnshot", BATCH_SIZE=64),
     DATA_LOADER=dict(
         NUM_WORKERS=8,
         PIN_MEMORY=True,
@@ -86,8 +75,7 @@ _config_dict = dict(
         CLASSES_PER_SET=5,
         SAMPLES_PER_CLASS=1,
         FCE=False,  #######################
-    ),
-    TEST_DEBUG=True,
+    )
 )
 
 

@@ -59,6 +59,7 @@ _config_dict = dict(
         ENABLE=True, 
         DATASET="Kineticsnshot", 
         BATCH_SIZE=4,  # 64
+        # use pretrained model
         CHECKPOINT_FILE_PATH=osp.join(
             "/",
             *osp.realpath(pyaction.__file__).split("/")[:-2],
