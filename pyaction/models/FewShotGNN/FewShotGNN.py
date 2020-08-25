@@ -1,60 +1,28 @@
-##+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-## Created by: Albert Berenguel
-## Computer Vision Center (CVC). Universitat Autonoma de Barcelona
-## Email: aberenguel@cvc.uab.es
-## Copyright (c) 2017
-##
-## This source code is licensed under the MIT-style license found in the
-## LICENSE file in the root directory of this source tree
-##+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
 import torch
 import torch.nn as nn
 import numpy as np
-
-#from Classifier import Classifier
-from pyaction.models.video_model_builder import ResNetModel
-from .BidirectionalLSTM import BidirectionalLSTM
-from .DistanceNetwork import CosineDistanceNetwork, EuclideanDistanceNetwork
-from .AttentionalClassify import AttentionalClassify
 import torch.nn.functional as F
 
-"""
-Currently: only support one-shot!!!!!!!!!!!!!!!
-"""
+from pyaction.models.video_model_builder import ResNetModel
+from .GNN_nl import GNN_nl
 
-class MatchingNetwork(nn.Module):
-    def __init__(self, cfg): # num_channels=1 nClasses = 0, image_size = 28
-        super(MatchingNetwork, self).__init__()
+
+class FewShotGNN(nn.Module):
+    def __init__(self, cfg):
+        super(FewShotGNN, self).__init__()
         """
-        Builds a matching network, the training and evaluation ops as well as data augmentation routines.
-        :param fce: Flag indicating whether to use full context embeddings (i.e. apply an LSTM on the CNN embeddings)
         :param num_classes_per_set: Integer indicating the number of classes per set
         :param num_samples_per_class: Integer indicating the number of samples per class
         """
         self.cfg = cfg
         self.num_classes_per_set = cfg.FEW_SHOT.CLASSES_PER_SET
         self.num_samples_per_class = cfg.FEW_SHOT.SAMPLES_PER_CLASS
-        self.fce = cfg.FEW_SHOT.FCE
-
-        #####################################################################
-        # self.g = Classifier(layer_size = 64, num_channels=num_channels,
-        #                     nClasses= nClasses, image_size = image_size )
-        #####################################################################
         self.g = ResNetModel(cfg)
-        if self.fce:
-            self.lstm = BidirectionalLSTM(layer_sizes=[32], vector_dim=cfg.RESNET.FEATURE_DIM)  # self.g.outSize
+        self.gnn = GNN_nl(dim_features=[2048+self.num_classes_per_set, 1024, 1024, self.num_classes_per_set])
         
-        self.dn = CosineDistanceNetwork()
-        if hasattr(cfg.FEW_SHOT, "DISTANCE") and cfg.FEW_SHOT.DISTANCE == "EUCLIDEAN":
-            self.dn = EuclideanDistanceNetwork()
-
-        self.classify = AttentionalClassify()
-
 
     def forward(self, support_images, support_labels_one_hot, target_images, target_labels=None):
         """
-        Builds graph for Matching Networks, produces losses and summary statistics.
         :param support_images: A tensor containing the support set images [batch_size, sequence_size, 3, 8, 224, 224]
         :param support_labels_one_hot: A tensor containing the support set labels [batch_size, sequence_size, n_classes]
         :param target_images: A tensor containing the target images (image to produce label for) [batch_size, ntest, 3, 8, 224, 224]
@@ -80,15 +48,23 @@ class MatchingNetwork(nn.Module):
             encoded_images.append(gen_encode)
             outputs = torch.stack(encoded_images)  # [n_support+1, batchsize, feature_dim]
 
-            if self.fce:
-                outputs, _, __ = self.lstm(outputs)  # [n_support+1, batchsize, feature_dim]
+            outputs = torch.transpose(outputs, 0, 1)  # [batchsize, n_support+1, feature_dim=2048] # checked
 
-            # get similarity between support set embeddings and target
-            similarities = self.dn(support_vecs=outputs[:-1], target_vec=outputs[-1])  # [nsupport, batchsize]
-            similarities = similarities.t()  # [batchsize, nsupport]
+            lshape = support_labels_one_hot.shape
+            zero_pad = torch.zeros(lshape[0], 1, lshape[2])
+            zero_pad = zero_pad.cuda()
+            labels_one_hot = torch.cat((support_labels_one_hot, zero_pad), 1)  # [batchsize, n_support+1, nclass] # checked
+
+            # Concat image feature with one-hot label
+            nodes = torch.cat((outputs, labels_one_hot), 2)  # [batchsize, n_support+1, feature_dim + nclass] # checked
+
+            # Get probabilities of current target
+            preds = self.gnn(nodes)
+
+            # import pdb; pdb.set_trace()  # see preds.shape
 
             # produce predictions for target probabilities
-            preds = self.classify(similarities, support_labels_one_hot=support_labels_one_hot)  # [batch_size, sequence_length]
+            # preds = self.classify(similarities, support_labels_one_hot=support_labels_one_hot)  # [batch_size, sequence_length]
 
             if target_labels is None:
                 preds_list.append(preds)
@@ -110,10 +86,4 @@ class MatchingNetwork(nn.Module):
             return torch.stack(preds_list)
             
         return accuracy/n_target, cross_entropy_loss/n_target
-        
-
-if __name__ == '__main__':
-    unittest.main()
-
-
 

@@ -7,15 +7,14 @@
 ## This source code is licensed under the MIT-style license found in the
 ## LICENSE file in the root directory of this source tree
 ##+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-# import unittest
 
-class DistanceNetwork(nn.Module):
+
+class CosineDistanceNetwork(nn.Module):
     def __init__(self):
-        super(DistanceNetwork, self).__init__()
+        super(CosineDistanceNetwork, self).__init__()
 
     def forward(self, support_vecs, target_vec):
         """
@@ -48,15 +47,25 @@ class DistanceNetwork(nn.Module):
         similarities = torch.stack(similarities)  # [nsupport, bs]
         return similarities
 
-# class DistanceNetworkTest(unittest.TestCase):
-#     def setUp(self):
-#         pass
 
-#     def tearDown(self):
-#         pass
+class EuclideanDistanceNetwork(nn.Module):
+    def __init__(self):
+        super(EuclideanDistanceNetwork, self).__init__()
 
-#     def test_forward(self):
-#         pass
+    def forward(self, support_vecs, target_vec):
+        """
+        Produces pdfs over the support set classes for the target set image.
+        :param support_vecs: The embeddings of the support set images, tensor of shape [sequence_length, batch_size, 64]
+        :param target_vec: The embedding of the target image, tensor of shape [batch_size, 64]
+        :return: Softmax pdf. Tensor with cosine similarities of shape [batch_size, sequence_length]
+        """
+        similarities = []
+        for support_vec in support_vecs:
+            similarities.append(torch.pow(support_vec-target_vec, 2).sum(1))
+
+        similarities = torch.stack(similarities)  # [nsupport, bs]
+        return similarities
+
 
 if __name__ == '__main__':
     unittest.main()

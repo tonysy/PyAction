@@ -60,11 +60,26 @@ def get_last_checkpoint(path_to_job):
     """
     d = get_checkpoint_dir(path_to_job)
     names = os.listdir(d) if os.path.exists(d) else []
-    names = [f for f in names if "checkpoint" in f]
+    names = [f for f in names if "checkpoint" in f]  # filter irrelevant files
     assert len(names), "No checkpoints found in '{}'.".format(d)
     # Sort the checkpoints by epoch.
     name = sorted(names)[-1]
     cpath = os.path.join(d, name)
+    print("Loading from {}..".format(cpath))
+    return cpath
+
+
+def get_checkpoint(path_to_job, epoch_id):
+    """
+    Get the checkpoint of specified epoch id from the checkpointing folder.
+    Args:
+        path_to_job (string): the path to the folder of the current job.
+    """
+    d = get_checkpoint_dir(path_to_job)
+    names = os.listdir(d) if os.path.exists(d) else []
+    names = [f for f in names if f.startswith("check") and f.endswith("{}.pyth".format(str(epoch_id).rjust(5, '0')))]
+    assert len(names) == 1, "No checkpoint found or found multiple checkpoints, please check."
+    cpath = os.path.join(d, names[0])
     print("Loading from {}..".format(cpath))
     return cpath
 

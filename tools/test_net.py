@@ -24,7 +24,7 @@ from net import build_model
 
 import pyaction.utils.multiprocessing as mpu
 from config import config
-
+from tqdm import tqdm
 
 def parse_args():
     """
@@ -133,9 +133,13 @@ def perform_test(test_loader, model, test_meter, cfg):
     # debug
     acc_list = []
 
-    for cur_iter, (support_x, support_y, target_x, target_y) in enumerate(test_loader):
+    bar_format = "{desc}[{elapsed}<{remaining},{rate_fmt}]"
+    pbar = tqdm(test_loader, bar_format=bar_format)
 
-        print("iter {}/{}:".format(cur_iter, len(test_loader)))
+    for cur_iter, (support_x, support_y, target_x, target_y) in enumerate(pbar):
+    # for cur_iter, (support_x, support_y, target_x, target_y) in enumerate(test_loader):
+
+        # print("iter {}/{}:".format(cur_iter, len(test_loader)))
 
         # support_y: Add extra dimension for the one_hot
         support_y = torch.unsqueeze(support_y, 2)  # (batchsize, classes_per_set * samples_per_class, 1)
@@ -222,6 +226,25 @@ def test(cfg):
         cfg (CfgNode): configs. Details can be found in
             slowfast/config/defaults.py
     """
+
+    ############
+    # LOG VARS #
+    ############
+    model_name = ""
+    # Unified test metric
+    unified_eval = hasattr(cfg, "UNIFIED_EVAL") and cfg.UNIFIED_EVAL
+    # Center-crop & multi-view
+    center_crop_multi_view = hasattr(cfg, "CENTER_CROP_MULTI_VIEW") and cfg.CENTER_CROP_MULTI_VIEW
+    if unified_eval:
+        eval_mode = "unified eval"
+    elif center_crop_multi_view:
+        eval_mode = "center-crop multi-view"
+    else:
+        eval_mode = "multi-crop multi-view"
+
+    # Conflit
+    assert not (unified_eval and center_crop_multi_view)
+
     # Set random seed from configs.
     np.random.seed(cfg.RNG_SEED)
     torch.manual_seed(cfg.RNG_SEED)
@@ -247,6 +270,9 @@ def test(cfg):
     if du.is_master_proc():
         misc.log_model_info(model, cfg, is_train=False)
 
+    ### If specified, either file path or epoch id is specified. ###
+    assert (not cfg.TEST.CHECKPOINT_FILE_PATH) or not (hasattr(cfg.TEST, "LOAD_EPOCH") and cfg.TEST.LOAD_EPOCH)
+
     # Load a checkpoint to test if applicable.
     if cfg.TEST.CHECKPOINT_FILE_PATH != "":
         logger.info("Load from given checkpoint file.")
@@ -259,10 +285,17 @@ def test(cfg):
             inflation=True,
             convert_from_caffe2=cfg.TEST.CHECKPOINT_TYPE == "caffe2",
         )
+        model_name = cfg.TEST.CHECKPOINT_FILE_PATH  # for print
+    elif hasattr(cfg.TEST, "LOAD_EPOCH") and cfg.TEST.LOAD_EPOCH:
+        logger.info("Load from the {}-th epoch...".format(cfg.TEST.EPOCH_ID))
+        cpath = cu.get_checkpoint(cfg.OUTPUT_DIR, cfg.TEST.EPOCH_ID)
+        cu.load_checkpoint(cpath, model, cfg.NUM_GPUS > 1)
+        model_name = cpath  # for print
     elif cu.has_checkpoint(cfg.OUTPUT_DIR):
         print("Loading from last checkpoint...")
         last_checkpoint = cu.get_last_checkpoint(cfg.OUTPUT_DIR)
         cu.load_checkpoint(last_checkpoint, model, cfg.NUM_GPUS > 1)
+        model_name = last_checkpoint  # for print
     elif cfg.TRAIN.CHECKPOINT_FILE_PATH != "":
         # If no checkpoint found in TEST.CHECKPOINT_FILE_PATH or in the current
         # checkpoint folder, try to load checkpint from
@@ -275,6 +308,7 @@ def test(cfg):
             inflation=False,
             convert_from_caffe2=cfg.TRAIN.CHECKPOINT_TYPE == "caffe2",
         )
+        model_name = cfg.TRAIN.CHECKPOINT_FILE_PATH  # for print
     else:
         # raise NotImplementedError("Unknown way to load checkpoint.")
         logger.info("Testing with random initialization. Only for debugging.")
@@ -288,30 +322,41 @@ def test(cfg):
         # test_meter = AVAMeter(len(test_loader), cfg, mode="test")
         pass
     else:
-        assert (
-            len(test_loader.dataset)
-            % (cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS)
-            == 0
-        )
+        if unified_eval:
+            num_clips = 1
+        elif center_crop_multi_view:
+            num_clips = cfg.TEST.NUM_ENSEMBLE_VIEWS * 1
+        else:
+            num_clips = cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS
+        
+        assert num_clips in [1, 10, 30]
+        assert (len(test_loader.dataset) % (num_clips) == 0)
+        
         # Create meters for multi-view testing.
         test_meter = TestMeter(
-            len(test_loader.dataset)
-            // (cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS),
-            cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS,
+            len(test_loader.dataset) // num_clips,
+            num_clips,
             cfg.MODEL.NUM_CLASSES,
             len(test_loader),
         )
 
     # # Perform multi-view test on the entire dataset.
 
-    n_test = 1
+    n_test = 1000
     results = []
     for i in range(n_test):
+        assert len(results) == i
         results.append(perform_test(test_loader, model, test_meter, cfg))
-        print(results[-1])
-
-    print(sum(results)/len(results), "!!!!!!!!!!!!")
-
+        if du.is_master_proc(cfg.NUM_GPUS * cfg.NUM_SHARDS):
+            l0 = "-------------------epoch {}/{}:------------------------".format(i, n_test)
+            print(l0)
+            print("               rand seed: {}".format(cfg.RNG_SEED))
+            print("               eval mode: {}".format(eval_mode))
+            print("         model evaluated: {}".format(model_name))
+            print("           cur epoch acc: {}".format(results[-1]))
+            print("   cur max, min, maxdiff: {}, {}, {}".format(max(results), min(results), max(results)-min(results)))
+            print("             cur avg acc: {}".format(sum(results)/len(results)))
+            print("-" * len(l0))
 
 def main():
     """

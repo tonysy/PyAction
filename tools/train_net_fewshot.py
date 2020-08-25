@@ -26,7 +26,7 @@ from pyaction.datasets import loader
 # from pyaction.models import model_builder
 from pyaction.utils.meters import AVAMeter, TrainMeter, ValMeter
 from net import build_model
-
+from pyaction.utils.freeze_bn import freeze_bn
 
 def train_epoch(train_loader, model, optimizer, train_meter, cur_epoch, cfg, writer):
     """
@@ -44,6 +44,16 @@ def train_epoch(train_loader, model, optimizer, train_meter, cur_epoch, cfg, wri
     """
     # Enable train mode.
     model.train()
+    
+    # if hasattr(cfg, "NO_TRAIN") and cfg.NO_TRAIN:
+    #     model.eval()
+
+    #!!!!!!!!!!!!!!!!#
+    # FOR DEBUG ONLY #
+    #!!!!!!!!!!!!!!!!#
+    if hasattr(cfg, "FREEZE_BN") and cfg.FREEZE_BN:
+        freeze_bn(model)
+    
     train_meter.iter_tic()
     data_size = len(train_loader)
 
@@ -401,14 +411,22 @@ def train(cfg):
         loader.shuffle_dataset(train_loader, cur_epoch)
 
         # Train for one epoch.
+        # BN will not update if cfg.FREEZE_BN is True
         train_epoch(train_loader, model, optimizer, train_meter, cur_epoch, cfg, writer)
 
-        # Compute precise BN stats.
-        if cfg.BN.USE_PRECISE_STATS and len(get_bn_modules(model)) > 0:
-            calculate_and_update_precise_bn(
-                # len(train_loader) == len(dataset)//ngpus
-                train_loader, model, cfg, len(train_loader)//5  #cfg.BN.NUM_BATCHES_PRECISE
-            )
+        # No need but, ...
+        #!!!!!!!!!!!!!!!!#
+        # FOR DEBUG ONLY #
+        #!!!!!!!!!!!!!!!!#
+        if hasattr(cfg, "FREEZE_BN") and cfg.FREEZE_BN:
+            pass
+        else:
+            # Compute precise BN stats.
+            if cfg.BN.USE_PRECISE_STATS and len(get_bn_modules(model)) > 0:
+                calculate_and_update_precise_bn(
+                    # len(train_loader) == len(dataset)//ngpus
+                    train_loader, model, cfg, len(train_loader)//5  #cfg.BN.NUM_BATCHES_PRECISE
+                )
 
         # Save a checkpoint.
         if cu.is_checkpoint_epoch(cur_epoch, cfg.TRAIN.CHECKPOINT_PERIOD):

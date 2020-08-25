@@ -49,6 +49,16 @@ class Kineticsnshot(torch.utils.data.Dataset):
                 and sample multiple clips per video.
             num_retries (int): number of retries.
         """
+
+        # Unified test metric
+        self.unified_eval = hasattr(cfg, "UNIFIED_EVAL") and cfg.UNIFIED_EVAL
+
+        # Center-crop & multi-view
+        self.center_crop_multi_view = hasattr(cfg, "CENTER_CROP_MULTI_VIEW") and cfg.CENTER_CROP_MULTI_VIEW
+
+        # Conflit
+        assert not (self.unified_eval and self.center_crop_multi_view)
+
         # Only support train, val, and test mode.
         assert mode in [
             "train",
@@ -66,7 +76,12 @@ class Kineticsnshot(torch.utils.data.Dataset):
         if self.mode in ["train", "val"]:
             self._num_clips = 1
         elif self.mode in ["test"]:
-            self._num_clips = cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS
+            if self.unified_eval:
+                self._num_clips = 1
+            elif self.center_crop_multi_view:
+                self._num_clips = cfg.TEST.NUM_ENSEMBLE_VIEWS * 1
+            else:
+                self._num_clips = cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS
 
         # few-shot
         self.classes_per_set = cfg.FEW_SHOT.CLASSES_PER_SET
@@ -158,8 +173,10 @@ class Kineticsnshot(torch.utils.data.Dataset):
 
             example_idxs = np.random.permutation(len(self.data_classes[cur_class]))
 
+            # Cursor for popping example_idxs
             j = 0
-            # meta-training
+
+            # Construct support
             for _ in range(self.samples_per_class):
                 for __ in range(self._num_retries):
                     if j >= len(example_idxs):
@@ -180,7 +197,7 @@ class Kineticsnshot(torch.utils.data.Dataset):
                 support_x.append(example_video["frames"][0])
                 support_y.append(example_video["label"])
 
-            # meta-testing
+            # Construct query
             for _ in range(n_test_samples):
                 for __ in range(self._num_retries):
                     if j >= len(example_idxs):
@@ -226,6 +243,7 @@ class Kineticsnshot(torch.utils.data.Dataset):
                 decoded, then return the index of the video. If not, return the
                 index of the video replacement that can be decoded.
         """
+
         if self.mode in ["train", "val"]:
             # -1 indicates random sampling.
             temporal_sample_index = -1
@@ -234,15 +252,24 @@ class Kineticsnshot(torch.utils.data.Dataset):
             max_scale = self.cfg.DATA.TRAIN_JITTER_SCALES[1]
             crop_size = self.cfg.DATA.TRAIN_CROP_SIZE
         elif self.mode in ["test"]:
-            temporal_sample_index = (
-                self._spatial_temporal_idx[index] // self.cfg.TEST.NUM_SPATIAL_CROPS
-            )
-            # spatial_sample_index is in [0, 1, 2]. Corresponding to left,
-            # center, or right if width is larger than height, and top, middle,
-            # or bottom if height is larger than width.
-            spatial_sample_index = (
-                self._spatial_temporal_idx[index] % self.cfg.TEST.NUM_SPATIAL_CROPS
-            )
+
+            if self.unified_eval:
+                temporal_sample_index = 0
+                spatial_sample_index = 1
+            elif self.center_crop_multi_view:
+                temporal_sample_index = self._spatial_temporal_idx[index]
+                spatial_sample_index = 1
+            else:
+                temporal_sample_index = (
+                    self._spatial_temporal_idx[index] // self.cfg.TEST.NUM_SPATIAL_CROPS
+                )
+                # spatial_sample_index is in [0, 1, 2]. Corresponding to left,
+                # center, or right if width is larger than height, and top, middle,
+                # or bottom if height is larger than width.
+                spatial_sample_index = (
+                    self._spatial_temporal_idx[index] % self.cfg.TEST.NUM_SPATIAL_CROPS
+                )
+
             min_scale, max_scale, crop_size = [self.cfg.DATA.TEST_CROP_SIZE] * 3
             # The testing is deterministic and no jitter should be performed.
             # min_scale, max_scale, and crop_size are expect to be the same.
@@ -273,7 +300,7 @@ class Kineticsnshot(torch.utils.data.Dataset):
             self.cfg.DATA.SAMPLING_RATE,
             self.cfg.DATA.NUM_FRAMES,
             temporal_sample_index,
-            self.cfg.TEST.NUM_ENSEMBLE_VIEWS,
+            1 if self.unified_eval else self.cfg.TEST.NUM_ENSEMBLE_VIEWS,  # self.cfg.TEST.NUM_ENSEMBLE_VIEWS, does not affect train/val
             video_meta=self._video_meta[index],
             target_fps=30,
         )

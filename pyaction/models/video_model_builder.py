@@ -552,18 +552,28 @@ class ResNetModel(nn.Module):
             )
 
     def forward(self, x, bboxes=None):
+        # import pdb; pdb.set_trace()
         x = self.s1(x)
+        # pdb.set_trace()
         x = self.s2(x)
+        # pdb.set_trace()
+
         for pathway in range(self.num_pathways):
             pool = getattr(self, "pathway{}_pool".format(pathway))
             x[pathway] = pool(x[pathway])
+
         x = self.s3(x)
+        # pdb.set_trace()
         x = self.s4(x)
+        # pdb.set_trace()
         x = self.s5(x)
+        # pdb.set_trace()
 
         if self.enable_detection:
             x = self.head(x, bboxes)
         else:
             x = self.head(x)
+
+        # pdb.set_trace()
 
         return x

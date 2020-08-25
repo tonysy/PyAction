@@ -21,9 +21,13 @@ def temporal_sampling(frames, start_idx, end_idx, num_samples):
         frames (tersor): a tensor of temporal sampled video frames, dimension is
             `num clip frames` x `channel` x `height` x `width`.
     """
+
+    # print("{}, st:{}, ed:{}, num samples: {}".format(frames.shape[0], start_idx, end_idx, num_samples))
+
     index = torch.linspace(start_idx, end_idx, num_samples)
     index = torch.clamp(index, 0, frames.shape[0] - 1).long()
     frames = torch.index_select(frames, 0, index)
+
     return frames
 
 
@@ -55,6 +59,15 @@ def get_start_end_idx(video_size, clip_size, clip_idx, num_clips):
         # Uniformly sample the clip with the given index.
         start_idx = delta * clip_idx / num_clips
     end_idx = start_idx + clip_size - 1
+
+    ###############################
+    # DEBUG
+    ################################
+    if num_clips == 1:
+        return 0, video_size
+
+    # print("{}, {} | {}, {} | {}, {}".format(video_size, clip_size, clip_idx, num_clips, start_idx, end_idx))
+
     return start_idx, end_idx
 
 
@@ -221,6 +234,10 @@ def decode(
         clip_idx if decode_all_video else 0,
         num_clips if decode_all_video else 1,
     )
+
+    # print("{}, {}, {}, {}".format(frames.shape[0], start_idx, end_idx, decode_all_video))
+
     # Perform temporal sampling from the decoded video.
     frames = temporal_sampling(frames, start_idx, end_idx, num_frames)
+
     return frames
