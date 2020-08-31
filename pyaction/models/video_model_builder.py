@@ -397,7 +397,7 @@ class ResNetModel(nn.Module):
 
         # Few-shot
         self.get_feature = hasattr(cfg.RESNET, "GET_FEATURE") and cfg.RESNET.GET_FEATURE
-        self.feature_dim = cfg.RESNET.FEATURE_DIM if self.get_feature else None
+        self.feature_dim = cfg.RESNET.FEATURE_DIM if self.get_feature else None  # Deprecated
 
         self.enable_detection = cfg.DETECTION.ENABLE
         self.num_pathways = 1
@@ -552,28 +552,35 @@ class ResNetModel(nn.Module):
             )
 
     def forward(self, x, bboxes=None):
-        # import pdb; pdb.set_trace()
-        x = self.s1(x)
+        # torch.Size([bs, 3, 8, 224, 224])
+        # import pdb; 
         # pdb.set_trace()
-        x = self.s2(x)
+
+        x = self.s1(x)  # torch.Size([bs, 64, 8, 56, 56])
+        # pdb.set_trace()
+        
+        x = self.s2(x)  # torch.Size([bs, 256, 8, 56, 56])
         # pdb.set_trace()
 
         for pathway in range(self.num_pathways):
             pool = getattr(self, "pathway{}_pool".format(pathway))
             x[pathway] = pool(x[pathway])
+        # pdb.set_trace()
+        # torch.Size([bs, 256, 4, 56, 56])
 
-        x = self.s3(x)
+        x = self.s3(x)  # torch.Size([bs, 512, 4, 28, 28])
         # pdb.set_trace()
-        x = self.s4(x)
+        
+        x = self.s4(x)  # torch.Size([bs, 1024, 4, 14, 14])
         # pdb.set_trace()
-        x = self.s5(x)
+        
+        x = self.s5(x)  # torch.Size([bs, 2048, 4, 7, 7])
         # pdb.set_trace()
 
         if self.enable_detection:
             x = self.head(x, bboxes)
         else:
             x = self.head(x)
-
-        # pdb.set_trace()
+        # pdb.set_trace()  # torch.Size([2048])
 
         return x

@@ -11,7 +11,6 @@ class GNN_nl(nn.Module):
     # 然后这里要注意它多层Gconv的实现
     # 每次过完一层Gconv，它会把x_new信号concat在之前的信号后面!!!
     # 这里比较疑惑，如果不concat，直接x=x_new会怎样?
-    
     activation: sigmoid
     """
 
@@ -33,7 +32,7 @@ class GNN_nl(nn.Module):
         cur_sum_dim = 0  # sum(dim(0,..,cur))
         for i in range(self.num_layers):
             cur_sum_dim += dim_features[i]
-            G = GLayer(dim_in=cur_sum_dim, dim_out=dim_features[i+1], metric_hidden_size=hidden_size, is_out_layer=(i == self.num_layers-1))
+            G = GLayer(dim_in=cur_sum_dim, dim_out=dim_features[i+1], metric_mlp_hidden_size=hidden_size, is_out_layer=(i == self.num_layers-1))
             self.add_module('layer_{}'.format(i), G)
 
     def forward(self, x):

@@ -4,12 +4,11 @@ import torch.nn.functional as F
 
 """
 功能:
+单层gnn
 
-这一套分块矩阵逻辑，比如gmul看下能不能改写得好看点
 # W_id在外面生成比较省空间
 
 non-linearity: Leaky-ReLU
-
 
 """
 
@@ -36,10 +35,11 @@ class Wcompute(nn.Module):
 
     """
     Implement 2 graph intrinsic linear operators:
-    1. RowSoftmax(MLP(abs(diff)))
+    1. RowSoftmax(MLP(distance)) default:distance=abs(diff),MLP=True
     2. Identity
     """
-
+    # todo:
+    
     # 计算相似度矩阵(mlp over abs diff)并返回相似度矩阵和一个identity拼成的矩阵
 
     # 这个模块因为它metric里有个mlp，所以需要给定mlp的size
@@ -51,43 +51,50 @@ class Wcompute(nn.Module):
     # 这里mlp的实现就写成N*N图上的1*1conv，两者等价
     # mlp的深度写死了,4层hidden,每层的维度就等于nf*ratio
     # input_features最终会压成num_operator，也就是1
-    # mlp需要每层都加个bn的吗
 
-    def __init__(self, dim_in, hidden_size, drop=False):  # num_operators=1, nf, ratio=[2,2,1,1], activation='softmax'
+    def __init__(self, dim_in, metric, metric_with_mlp=True, hidden_size=None, drop=False):  # num_operators=1, nf, ratio=[2,2,1,1], activation='softmax'
         super(Wcompute, self).__init__()
-        # MLP of 4 hidden layers
-        assert len(hidden_size) == 4
+        self.metric = metric
+        self.metric_with_mlp = metric_with_mlp
+        
+        if self.metric_with_mlp:
+            # MLP of 4 hidden layers
+            assert len(hidden_size) == 4
 
-        # Layer-1
-        self.conv2d_1 = nn.Conv2d(dim_in, hidden_size[0], 1, stride=1)
-        self.bn_1 = nn.BatchNorm2d(hidden_size[0])
-        self.drop = drop
-        if self.drop:
-            self.dropout = nn.Dropout(0.3)
+            # Layer-1
+            self.conv2d_1 = nn.Conv2d(dim_in, hidden_size[0], 1, stride=1)
+            self.bn_1 = nn.BatchNorm2d(hidden_size[0])
+            self.drop = drop
+            if self.drop:
+                self.dropout = nn.Dropout(0.3)
 
-        # Layer-2
-        self.conv2d_2 = nn.Conv2d(hidden_size[0], hidden_size[1], 1, stride=1)
-        self.bn_2 = nn.BatchNorm2d(hidden_size[1])
-        
-        # Layer-3
-        self.conv2d_3 = nn.Conv2d(hidden_size[1], hidden_size[2], 1, stride=1)
-        self.bn_3 = nn.BatchNorm2d(hidden_size[2])
-        
-        # Layer-4
-        self.conv2d_4 = nn.Conv2d(hidden_size[2], hidden_size[3], 1, stride=1)
-        self.bn_4 = nn.BatchNorm2d(hidden_size[3])
-        
-        # Layer-out
-        self.conv2d_last = nn.Conv2d(hidden_size[3], 1, 1, stride=1)  # 所以最后会把input_features维压缩成一个scaler，即为距离
+            # Layer-2
+            self.conv2d_2 = nn.Conv2d(hidden_size[0], hidden_size[1], 1, stride=1)
+            self.bn_2 = nn.BatchNorm2d(hidden_size[1])
+            
+            # Layer-3
+            self.conv2d_3 = nn.Conv2d(hidden_size[1], hidden_size[2], 1, stride=1)
+            self.bn_3 = nn.BatchNorm2d(hidden_size[2])
+            
+            # Layer-4
+            self.conv2d_4 = nn.Conv2d(hidden_size[2], hidden_size[3], 1, stride=1)
+            self.bn_4 = nn.BatchNorm2d(hidden_size[3])
+            
+            # Layer-out
+            self.conv2d_last = nn.Conv2d(hidden_size[3], 1, 1, stride=1)  # 所以最后会把input_features维压缩成一个scaler，即为距离
 
 
     def forward(self, x, W_id):
 
-        # Get pair-wise abs diff matrix
+        # Compute raw distance
         W1 = x.unsqueeze(2)  # (bs, N, 1, dim_in)
         W2 = torch.transpose(W1, 1, 2)  # (bs, 1, N, dim_in)
-        W_new = torch.abs(W1 - W2) # (bs, N, N, dim_in)
-        
+
+        if self.metric == "ABS_DIFF":
+            # Get pair-wise abs diff matrix
+            W_new = torch.abs(W1 - W2) # (bs, N, N, dim_in)
+        else:
+            #################
         # Transpose for the conv afterwards
         W_new = torch.transpose(W_new, 1, 3)  # (bs, dim_in, N, N)
 
@@ -186,10 +193,9 @@ class Gconv(nn.Module):
 
 
 class GLayer(nn.Module):
-    def __init__(self, dim_in, dim_out, metric_hidden_size, is_out_layer=False):
+    def __init__(self, dim_in, dim_out, metric='ABS_DIFF', metric_with_mlp=True, metric_mlp_hidden_size=None, is_out_layer=False):
         super(GLayer, self).__init__()
-
-        self.module_w = Wcompute(dim_in, metric_hidden_size)
+        self.module_w = Wcompute(dim_in, metric=metric, metric_with_mlp=metric_with_mlp, hidden_size=metric_mlp_hidden_size)
         self.module_gconv = Gconv(dim_in, dim_out, J=2, bn_bool=not is_out_layer)
         self.non_linear = F.leaky_relu
         self.is_out_layer = is_out_layer
