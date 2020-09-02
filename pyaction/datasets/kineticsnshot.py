@@ -30,7 +30,7 @@ class Kineticsnshot(torch.utils.data.Dataset):
     bottom crop if the height is larger than the width.
     """
 
-    def __init__(self, cfg, mode, num_retries=10):
+    def __init__(self, cfg, mode, num_retries=50):
         """
         Construct the Kinetics video loader with a given csv file. The format of
         the csv file is:
