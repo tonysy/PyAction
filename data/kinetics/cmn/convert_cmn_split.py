@@ -1,5 +1,7 @@
 # Please put cmn split folder, i.e. kinetics-100/[train/val/test].list in this folder
 
+import os
+
 for name in ["train", "val", "test"]:
     f = open("kinetics-100/{}.list".format(name), "r")
     assert f is not None
@@ -21,7 +23,7 @@ for name in ["train", "val", "test"]:
             c = line.split("/")[0]
             l = dict_class_label[c]
             csv_file.writelines(
-                "/root/Datasets/kinetics-400/raw-part/compress/train_256/{}.mp4 {}\n".format(line, l)
+                os.path.expanduser("~/Datasets/kinetics-400/raw-part/compress/train_256/{}.mp4 {}\n").format(line, l)
             )
     
     # verify csv
