@@ -51,10 +51,10 @@ class Kineticsnshot(torch.utils.data.Dataset):
         """
 
         # Unified test metric
-        self.unified_eval = hasattr(cfg, "UNIFIED_EVAL") and cfg.UNIFIED_EVAL
+        self.unified_eval = hasattr(cfg.TEST, "UNIFIED_EVAL") and cfg.TEST.UNIFIED_EVAL
 
         # Center-crop & multi-view
-        self.center_crop_multi_view = hasattr(cfg, "CENTER_CROP_MULTI_VIEW") and cfg.CENTER_CROP_MULTI_VIEW
+        self.center_crop_multi_view = hasattr(cfg.TEST, "CENTER_CROP_MULTI_VIEW") and cfg.TEST.CENTER_CROP_MULTI_VIEW
 
         # Conflit
         assert not (self.unified_eval and self.center_crop_multi_view)
@@ -94,8 +94,14 @@ class Kineticsnshot(torch.utils.data.Dataset):
         """
         Construct the video loader.
         """
-        if self.mode == "test" and hasattr(self.cfg, "TEST_DEBUG") and self.cfg.TEST_DEBUG:
-            name = "debug"
+        # if self.mode == "test" and hasattr(self.cfg.TEST, "TEST_DEBUG") and self.cfg.TEST_DEBUG:
+        #     name = str(self.cfg.TEST_DEBUG)
+        # else:
+        #     name = self.mode
+
+        if self.mode == "test":
+            assert hasattr(self.cfg.TEST, "CUR_SPLIT")
+            name = self.cfg.TEST.CUR_SPLIT
         else:
             name = self.mode
 

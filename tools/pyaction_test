@@ -3,6 +3,7 @@
 export OMP_NUM_THREADS=1
 python3 /root/Develop/PyAction/tools/test_net.py $@
 
+# CUDA_VISIBLE_DEVICES=0,2,3 python3 ~/Projects/zhjl/PyAction/tools/test_net.py
+# CUDA_VISIBLE_DEVICES=0,2,3 python3 ~/Develop/PyAction/tools/test_net.py
 
-
-CUDA_VISIBLE_DEVICES=0,2,3 python3 ~/Projects/zhjl/PyAction/tools/test_net.py $@
+# Use testnet instead.

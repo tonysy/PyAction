@@ -78,6 +78,7 @@ def get_checkpoint(path_to_job, epoch_id):
     d = get_checkpoint_dir(path_to_job)
     names = os.listdir(d) if os.path.exists(d) else []
     names = [f for f in names if f.startswith("check") and f.endswith("{}.pyth".format(str(epoch_id).rjust(5, '0')))]
+    print(names)
     assert len(names) == 1, "No checkpoint found or found multiple checkpoints, please check."
     cpath = os.path.join(d, names[0])
     print("Loading from {}..".format(cpath))
@@ -177,6 +178,7 @@ def load_checkpoint(
     optimizer=None,
     inflation=False,
     convert_from_caffe2=False,
+    strict=True, ################# false for loading from classifier
 ):
     """
     Load the checkpoint from the given file. If inflation is True, inflate the
@@ -251,7 +253,7 @@ def load_checkpoint(
             )
             ms.load_state_dict(inflated_model_dict, strict=False)
         else:
-            ms.load_state_dict(checkpoint["model_state"])
+            ms.load_state_dict(checkpoint["model_state"], strict=strict)  ########
             # Load the optimizer state (commonly not done when fine-tuning)
             if optimizer:
                 optimizer.load_state_dict(checkpoint["optimizer_state"])

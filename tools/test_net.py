@@ -226,25 +226,6 @@ def test(cfg):
         cfg (CfgNode): configs. Details can be found in
             slowfast/config/defaults.py
     """
-
-    ############
-    # LOG VARS #
-    ############
-    model_name = ""
-    # Unified test metric
-    unified_eval = hasattr(cfg, "UNIFIED_EVAL") and cfg.UNIFIED_EVAL
-    # Center-crop & multi-view
-    center_crop_multi_view = hasattr(cfg, "CENTER_CROP_MULTI_VIEW") and cfg.CENTER_CROP_MULTI_VIEW
-    if unified_eval:
-        eval_mode = "unified eval"
-    elif center_crop_multi_view:
-        eval_mode = "center-crop multi-view"
-    else:
-        eval_mode = "multi-crop multi-view"
-
-    # Conflit
-    assert not (unified_eval and center_crop_multi_view)
-
     # Set random seed from configs.
     np.random.seed(cfg.RNG_SEED)
     torch.manual_seed(cfg.RNG_SEED)
@@ -259,24 +240,76 @@ def test(cfg):
     logger.info(
         "different config with base class:\n{}".format(cfg.show_diff(base_config))
     )
+    is_master = du.is_master_proc(cfg.NUM_GPUS * cfg.NUM_SHARDS)
+    if hasattr(cfg.TEST, "LOAD_EPOCH") and cfg.TEST.LOAD_EPOCH:
+        for cur_epoch in cfg.TEST.EPOCH_IDS:
+            for cur_split in cfg.TEST.SPLITS:
+                cfg.TEST.CUR_EPOCH = cur_epoch
+                cfg.TEST.CUR_SPLIT = cur_split
+                test_model(cfg, is_master)
+    else:
+        for cur_split in cfg.TEST.SPLITS:
+            cfg.TEST.CUR_SPLIT = cur_split
+            test_model(cfg, is_master)
 
-    # Print config.
-    # logger.info("Test with config:")
-    # logger.info(cfg)
+    
+# Test on single model
+def test_model(cfg, is_master):
+
+    # Create the log folder
+    if is_master:
+        logpath = os.path.join(cfg.OUTPUT_DIR, "inference_logs")
+        if not os.path.exists(logpath):
+            os.mkdir(logpath)
+
+    # Set current logger
+    logfilename = cfg.TEST.CUR_EPOCH if hasattr(cfg.TEST, "LOAD_EPOCH") and cfg.TEST.LOAD_EPOCH else "xxx"
+    logger = logging.setup_logging(
+        os.path.join(
+            cfg.OUTPUT_DIR, 
+            "inference_logs",
+            "{}_{}.log".format(cfg.TEST.CUR_SPLIT, logfilename)
+        )
+    )
+
+    # LOG VARS #
+    model_name = ""
+    # Unified test metric
+    unified_eval = hasattr(cfg.TEST, "UNIFIED_EVAL") and cfg.TEST.UNIFIED_EVAL
+    # Center-crop & multi-view
+    center_crop_multi_view = hasattr(cfg.TEST, "CENTER_CROP_MULTI_VIEW") and cfg.TEST.CENTER_CROP_MULTI_VIEW
+    if unified_eval:
+        eval_mode = "unified eval"
+    elif center_crop_multi_view:
+        eval_mode = "center-crop multi-view"
+    else:
+        eval_mode = "multi-crop multi-view"
+    # Conflit
+    assert not (unified_eval and center_crop_multi_view)
 
     # Build the video model and print model statistics.
-    # model = model_builder.build_model(cfg)
-    model = build_model(cfg)
-    if du.is_master_proc():
-        misc.log_model_info(model, cfg, is_train=False)
+    model = build_model(cfg)  # model = model_builder.build_model(cfg)
+
+    # if du.is_master_proc():
+    #     misc.log_model_info(model, cfg, is_train=False)
 
     ### If specified, either file path or epoch id is specified. ###
     assert (not cfg.TEST.CHECKPOINT_FILE_PATH) or not (hasattr(cfg.TEST, "LOAD_EPOCH") and cfg.TEST.LOAD_EPOCH)
 
     # Load a checkpoint to test if applicable.
-    if cfg.TEST.CHECKPOINT_FILE_PATH != "":
-        logger.info("Load from given checkpoint file.")
-        print("Loading from given file {}...".format(cfg.TEST.CHECKPOINT_FILE_PATH))
+    if hasattr(cfg.TEST, "LOAD_CLASSIFIER") and cfg.TEST.LOAD_CLASSIFIER:
+        logger.info("Load from the {}-th epoch...".format(cfg.TEST.CUR_EPOCH))
+        cpath = cu.get_checkpoint(cfg.OUTPUT_DIR, cfg.TEST.CUR_EPOCH)
+        cu.load_checkpoint(
+            cpath, 
+            model.module.g if hasattr(model, "module") else model.g, 
+            cfg.NUM_GPUS > 1,
+            strict=False,
+        )
+        model_name = cpath  # for print
+
+    elif cfg.TEST.CHECKPOINT_FILE_PATH != "":
+        logger.info("Loading from given file {}...".format(cfg.TEST.CHECKPOINT_FILE_PATH))
         cu.load_checkpoint(
             cfg.TEST.CHECKPOINT_FILE_PATH,
             model.module.g if hasattr(model, "module") else model.g,
@@ -287,12 +320,12 @@ def test(cfg):
         )
         model_name = cfg.TEST.CHECKPOINT_FILE_PATH  # for print
     elif hasattr(cfg.TEST, "LOAD_EPOCH") and cfg.TEST.LOAD_EPOCH:
-        logger.info("Load from the {}-th epoch...".format(cfg.TEST.EPOCH_ID))
-        cpath = cu.get_checkpoint(cfg.OUTPUT_DIR, cfg.TEST.EPOCH_ID)
+        logger.info("Load from the {}-th epoch...".format(cfg.TEST.CUR_EPOCH))
+        cpath = cu.get_checkpoint(cfg.OUTPUT_DIR, cfg.TEST.CUR_EPOCH)
         cu.load_checkpoint(cpath, model, cfg.NUM_GPUS > 1)
         model_name = cpath  # for print
     elif cu.has_checkpoint(cfg.OUTPUT_DIR):
-        print("Loading from last checkpoint...")
+        logger.info("Loading from last checkpoint...")
         last_checkpoint = cu.get_last_checkpoint(cfg.OUTPUT_DIR)
         cu.load_checkpoint(last_checkpoint, model, cfg.NUM_GPUS > 1)
         model_name = last_checkpoint  # for print
@@ -341,22 +374,40 @@ def test(cfg):
         )
 
     # # Perform multi-view test on the entire dataset.
-
-    n_test = 1000
+    n_test = cfg.TEST.NTEST if hasattr(cfg.TEST, "NTEST") else 1000
     results = []
+    split_name = cfg.TEST.CUR_SPLIT
+
     for i in range(n_test):
         assert len(results) == i
         results.append(perform_test(test_loader, model, test_meter, cfg))
-        if du.is_master_proc(cfg.NUM_GPUS * cfg.NUM_SHARDS):
-            l0 = "-------------------epoch {}/{}:------------------------".format(i, n_test)
-            print(l0)
-            print("               rand seed: {}".format(cfg.RNG_SEED))
-            print("               eval mode: {}".format(eval_mode))
-            print("         model evaluated: {}".format(model_name))
-            print("           cur epoch acc: {}".format(results[-1]))
-            print("   cur max, min, maxdiff: {}, {}, {}".format(max(results), min(results), max(results)-min(results)))
-            print("             cur avg acc: {}".format(sum(results)/len(results)))
-            print("-" * len(l0))
+        if is_master:
+            m0 = "-------------------epoch {}/{}:------------------------".format(i, n_test)
+            output_messages = [
+                m0,
+                "                   split: {}".format(split_name+".csv"),
+                "               rand seed: {}".format(cfg.RNG_SEED),
+                "               eval mode: {}".format(eval_mode),
+                "         model evaluated: {}".format(model_name),
+                "           cur epoch acc: {}".format(results[-1]),
+                "   cur max, min, maxdiff: {}, {}, {}".format(max(results), min(results), max(results)-min(results)),
+                "             cur avg acc: {}".format(sum(results)/len(results)),
+                "-" * len(m0),
+            ]
+            for m in output_messages:
+                # print(m)
+                logger.info(m)
+
+            # l0 = "-------------------epoch {}/{}:------------------------".format(i, n_test)
+            # print(l0)
+            # print("                   split: {}".format(split_name+".csv"))
+            # print("               rand seed: {}".format(cfg.RNG_SEED))
+            # print("               eval mode: {}".format(eval_mode))
+            # print("         model evaluated: {}".format(model_name))
+            # print("           cur epoch acc: {}".format(results[-1]))
+            # print("   cur max, min, maxdiff: {}, {}, {}".format(max(results), min(results), max(results)-min(results)))
+            # print("             cur avg acc: {}".format(sum(results)/len(results)))
+            # print("-" * len(l0))
 
 def main():
     """
