@@ -15,11 +15,21 @@ import numpy as np
 #from Classifier import Classifier
 from pyaction.models.video_model_builder import ResNetModel
 from .BidirectionalLSTM import BidirectionalLSTM
-from .DistanceNetwork import CosineDistanceNetwork, EuclideanDistanceNetwork
+from .DistanceNetwork import CosineDistanceNetwork, EuclideanDistanceNetwork, \
+        FrameMaxCosineDistanceNetwork, FrameStraightAlignCosineDistanceNetwork, \
+        FrameGreedyAlignCosineDistanceNetwork, FrameSelfContextMeanNetwork, \
+        FrameCosineDistanceMeanNetwork, FrameMeanCosineDistanceNetwork
 from .AttentionalClassify import AttentionalClassify
 import torch.nn.functional as F
-
 from pyaction.utils.freeze import freeze  # Freeze network function
+
+def update_frame_fuse_method(cfg):
+    if hasattr(cfg.FEW_SHOT, "DISTANCE"):
+        if str(cfg.FEW_SHOT.DISTANCE).startswith("FRAME"):
+            cfg.FRAME_FUSE = "FRAME_CAT"
+            cfg.MODEL.ARCH = "c2d_nopool"
+            return
+    cfg.FRAME_FUSE = "FRAME_MEAN"
 
 """
 Currently: only support one-shot!!!!!!!!!!!!!!!
@@ -38,22 +48,37 @@ class MatchingNetwork(nn.Module):
         self.num_samples_per_class = cfg.FEW_SHOT.SAMPLES_PER_CLASS
         self.fce = cfg.FEW_SHOT.FCE
 
-        #####################################################################
-        # self.g = Classifier(layer_size = 64, num_channels=num_channels,
-        #                     nClasses= nClasses, image_size = image_size )
-        #####################################################################
+        # Embedding Network
+        update_frame_fuse_method(cfg)  # cfg.FRAME_FUSE := FRAME_MEAN/FRAME_CAT
         self.g = ResNetModel(cfg)
 
+        # Freeze embedding
         if hasattr(cfg, "FREEZE_RESNET_EXCEPT_NONLOCAL") and cfg.FREEZE_RESNET_EXCEPT_NONLOCAL:
             freeze(self.g, freeze_bn_stats=cfg.FREEZE_BN_STATS, freeze_nln=False)
 
+        # Full Context Embedding
         if self.fce:
             self.lstm = BidirectionalLSTM(layer_sizes=[32], vector_dim=cfg.RESNET.FEATURE_DIM)  # self.g.outSize
         
-        self.dn = CosineDistanceNetwork()
+        # Distance Network
         if hasattr(cfg.FEW_SHOT, "DISTANCE") and cfg.FEW_SHOT.DISTANCE == "EUCLIDEAN":
             self.dn = EuclideanDistanceNetwork()
+        elif hasattr(cfg.FEW_SHOT, "DISTANCE") and cfg.FEW_SHOT.DISTANCE == "FRAME_MAX_COSINE":
+            self.dn = FrameMaxCosineDistanceNetwork(nframes=cfg.DATA.NUM_FRAMES)
+        elif hasattr(cfg.FEW_SHOT, "DISTANCE") and cfg.FEW_SHOT.DISTANCE == "FRAME_STRAIGHT_ALIGN_COSINE":
+            self.dn = FrameStraightAlignCosineDistanceNetwork(nframes=cfg.DATA.NUM_FRAMES)
+        elif hasattr(cfg.FEW_SHOT, "DISTANCE") and cfg.FEW_SHOT.DISTANCE == "FRAME_GREEDY_ALIGN_COSINE":
+            self.dn = FrameGreedyAlignCosineDistanceNetwork(nframes=cfg.DATA.NUM_FRAMES)
+        elif hasattr(cfg.FEW_SHOT, "DISTANCE") and cfg.FEW_SHOT.DISTANCE == "FRAME_SELF_CONTEXT_MEAN_COSINE":
+            self.dn = FrameSelfContextMeanNetwork(nframes=cfg.DATA.NUM_FRAMES)
+        elif hasattr(cfg.FEW_SHOT, "DISTANCE") and cfg.FEW_SHOT.DISTANCE == "FRAME_COSINE_MEAN":
+            self.dn = FrameCosineDistanceMeanNetwork(nframes=cfg.DATA.NUM_FRAMES)
+        elif hasattr(cfg.FEW_SHOT, "DISTANCE") and cfg.FEW_SHOT.DISTANCE == "FRAME_MEAN_COSINE":
+            self.dn = FrameMeanCosineDistanceNetwork(nframes=cfg.DATA.NUM_FRAMES)
+        else:  # DEFAULT
+            self.dn = CosineDistanceNetwork()
 
+        # Classifier
         self.classify = AttentionalClassify()
 
 

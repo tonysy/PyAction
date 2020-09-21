@@ -244,11 +244,17 @@ def test(cfg):
     if hasattr(cfg.TEST, "LOAD_EPOCH") and cfg.TEST.LOAD_EPOCH:
         for cur_epoch in cfg.TEST.EPOCH_IDS:
             for cur_split in cfg.TEST.SPLITS:
+                if hasattr(cfg.TEST, "ENDLESS") and cfg.TEST.ENDLESS \
+                    and cur_epoch == cfg.TEST.EPOCH_IDS[-1] and cur_split == cfg.TEST.SPLITS[-1]:  # last iteration
+                    cfg.TEST.NTEST = 1000
                 cfg.TEST.CUR_EPOCH = cur_epoch
                 cfg.TEST.CUR_SPLIT = cur_split
                 test_model(cfg, is_master)
     else:
         for cur_split in cfg.TEST.SPLITS:
+            if hasattr(cfg.TEST, "ENDLESS") and cfg.TEST.ENDLESS \
+                and cur_split == cfg.TEST.SPLITS[-1]:  # last iteration
+                cfg.TEST.NTEST = 1000
             cfg.TEST.CUR_SPLIT = cur_split
             test_model(cfg, is_master)
 

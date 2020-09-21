@@ -222,6 +222,8 @@ class ResNetBasicHead(nn.Module):
         # (at least one dimension spans across two contiguous subspaces). Use .reshape(...) instead.
         x = x.reshape(x.shape[0], -1)
 
+        # print(x.shape, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+
         if self.debug:
             import pdb; pdb.set_trace()
 

@@ -395,6 +395,12 @@ class ResNetModel(nn.Module):
         """
         super(ResNetModel, self).__init__()
 
+        # Frame-Fuse
+        if hasattr(cfg, "FRAME_FUSE") and cfg.FRAME_FUSE == "FRAME_CAT":
+            self.feature_fuse = "FRAME_CAT"
+        else:
+            self.feature_fuse = "FRAME_MEAN"
+
         # Few-shot
         self.get_feature = hasattr(cfg.RESNET, "GET_FEATURE") and cfg.RESNET.GET_FEATURE
         self.feature_dim = cfg.RESNET.FEATURE_DIM if self.get_feature else None  # Deprecated
@@ -534,12 +540,17 @@ class ResNetModel(nn.Module):
                 aligned=cfg.DETECTION.ALIGNED,
             )
         else:
+            if self.feature_fuse == "FRAME_CAT":
+                temp_pool_size = 1
+            else:
+                temp_pool_size = cfg.DATA.NUM_FRAMES // pool_size[0][0]
+
             self.head = head_helper.ResNetBasicHead(
                 dim_in=[width_per_group * 32],
                 num_classes=cfg.MODEL.NUM_CLASSES,
                 pool_size=[
                     [
-                        cfg.DATA.NUM_FRAMES // pool_size[0][0],
+                        temp_pool_size,
                         cfg.DATA.CROP_SIZE // 32 // pool_size[0][1],
                         cfg.DATA.CROP_SIZE // 32 // pool_size[0][2],
                     ]
@@ -576,6 +587,8 @@ class ResNetModel(nn.Module):
         
         x = self.s5(x)  # torch.Size([bs, 2048, 4, 7, 7])
         # pdb.set_trace()
+
+        # print(x[0].shape, "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
         if self.enable_detection:
             x = self.head(x, bboxes)

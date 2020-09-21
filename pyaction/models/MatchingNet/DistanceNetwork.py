@@ -19,8 +19,8 @@ class CosineDistanceNetwork(nn.Module):
     def forward(self, support_vecs, target_vec):
         """
         Produces pdfs over the support set classes for the target set image.
-        :param support_vecs: The embeddings of the support set images, tensor of shape [sequence_length, batch_size, 64]
-        :param target_vec: The embedding of the target image, tensor of shape [batch_size, 64]
+        :param support_vecs: The embeddings of the support set images, tensor of shape [sequence_length, batch_size, dim_feature]
+        :param target_vec: The embedding of the target image, tensor of shape [batch_size, dim_feature]
         :return: Softmax pdf. Tensor with cosine similarities of shape [batch_size, sequence_length]
         """
 
@@ -65,6 +65,307 @@ class EuclideanDistanceNetwork(nn.Module):
 
         similarities = torch.stack(similarities)  # [nsupport, bs]
         return similarities
+
+
+class FrameMaxCosineDistanceNetwork(nn.Module):
+    """
+    Distance of video A and B: max(cos(frame_A_i, frame_B_j))
+    """
+    def __init__(self, nframes):
+        super(FrameMaxCosineDistanceNetwork, self).__init__()
+        self.nframes = nframes
+
+    def forward(self, support_vecs, target_vec):
+        """
+        Produces pdfs over the support set classes for the target set image.
+        :param support_vecs: The embeddings of the support set images, tensor of shape [sequence_length, batch_size, dim_feature]
+        :param target_vec: The embedding of the target image, tensor of shape [batch_size, dim_feature]
+        :return: Softmax pdf. Tensor with cosine similarities of shape [batch_size, sequence_length]
+        """
+    
+        # Normalize
+        support_vecs = F.normalize(support_vecs, p=2, dim=2)
+        target_vec = F.normalize(target_vec, p=2, dim=1)
+
+        # Dot product
+        similarities = []  # [nsupport * tensor(bs)]
+        for support_vec in support_vecs:
+            # [bs, 64]->[bs,1,64] & [bs, 64]->[bs,64,1] => [bs, 1, 1].squeeze(1).squeeze(1) => [bs]
+            similarities.append(torch.bmm(support_vec.unsqueeze(1), target_vec.unsqueeze(2)).squeeze(1).squeeze(1))  
+
+        similarities = torch.stack(similarities)  # [nsupport, bs]
+        return similarities
+
+
+class FrameStraightAlignCosineDistanceNetwork(nn.Module):
+    def __init__(self, nframes):
+        super(FrameStraightAlignCosineDistanceNetwork, self).__init__()
+        self.nframes = nframes
+
+    def forward(self, support_vecs, target_vec):
+        """
+        Produces pdfs over the support set classes for the target set image.
+        :param support_vecs: The embeddings of the support set images, tensor of shape [sequence_length, batch_size, dim_feature]
+        :param target_vec: The embedding of the target image, tensor of shape [batch_size, dim_feature]
+        :return: Softmax pdf. Tensor with cosine similarities of shape [batch_size, sequence_length]
+        """
+
+        # Reshape
+        seqlen, bs, df = support_vecs.shape  # torch.Size([5, bs, 16384])
+        support_vecs = support_vecs.view(seqlen, bs, self.nframes, -1)  # torch.Size([5, bs, 8, 2048])
+
+        bs, df = target_vec.shape  # torch.Size([bs, 16384])
+        target_vec = target_vec.view(bs, self.nframes, -1)  # torch.Size([bs, 8, 2048])
+
+        # Normalize
+        support_vecs = F.normalize(support_vecs, p=2, dim=-1)
+        target_vec = F.normalize(target_vec, p=2, dim=-1)
+
+        # Recover shape
+        support_vecs = support_vecs.view(seqlen, bs, -1)  # torch.Size([5, bs, 16384])
+        target_vec = target_vec.view(bs, -1)  # torch.Size([bs, 16384])
+
+        # Dot product
+        similarities = []  # [nsupport * tensor(bs)]
+        for support_vec in support_vecs:
+            # [bs, 64]->[bs,1,64] & [bs, 64]->[bs,64,1] => [bs, 1, 1].squeeze(1).squeeze(1) => [bs]
+            similarities.append(torch.bmm(support_vec.unsqueeze(1), target_vec.unsqueeze(2)).squeeze(1).squeeze(1))  
+
+        similarities = torch.stack(similarities)  # [nsupport, bs]
+        return similarities
+
+
+class FrameGreedyAlignCosineDistanceNetwork(nn.Module):
+    def __init__(self, nframes):
+        super(FrameGreedyAlignCosineDistanceNetwork, self).__init__()
+        self.nframes = nframes
+
+    def forward(self, support_vecs, target_vec):
+        """
+        Produces pdfs over the support set classes for the target set image.
+        :param support_vecs: The embeddings of the support set images, tensor of shape [sequence_length, batch_size, dim_feature]
+        :param target_vec: The embedding of the target image, tensor of shape [batch_size, dim_feature]
+        :return: Softmax pdf. Tensor with cosine similarities of shape [batch_size, sequence_length]
+        """
+
+        # Reshape
+        seqlen, bs, df = support_vecs.shape  # torch.Size([5, bs, 16384])
+        support_vecs = support_vecs.view(seqlen, bs, self.nframes, -1)  # torch.Size([5, bs, 8, 2048])
+
+        bs, df = target_vec.shape  # torch.Size([bs, 16384])
+        target_vec = target_vec.view(bs, self.nframes, -1)  # torch.Size([bs, 8, 2048])
+
+        # Normalize
+        support_vecs = F.normalize(support_vecs, p=2, dim=-1)
+        target_vec = F.normalize(target_vec, p=2, dim=-1)
+
+        similarities = []
+        for support_vec in support_vecs:
+            sv = support_vec.view(target_vec.shape)  # torch.Size([bs, 8, 2048])
+            vt = target_vec.transpose(-1, -2)  # torch.Size([bs, 2048, 8])
+            D = torch.bmm(sv, vt)  # S*Q  torch.Size([bs, 8, 8])
+            
+            # 每行取最大值和每列取最大值，两者其实不等价
+            # 这里以query的视角为准(i.e. 每列取最大值)，这样5个D都是以D的视角，貌似比较可比
+            # x = torch.max(D, 1)  # checked
+            similarities.append(torch.max(D, 1)[0].sum(1))  # torch.Size([bs])
+            
+        similarities = torch.stack(similarities)  # [nsupport, bs]
+        return similarities
+
+
+class FrameCosineDistanceMeanNetwork(nn.Module):
+    def __init__(self, nframes):
+        super(FrameCosineDistanceMeanNetwork, self).__init__()
+        self.nframes = nframes
+
+    def forward(self, support_vecs, target_vec):
+        """
+        Produces pdfs over the support set classes for the target set image.
+        :param support_vecs: The embeddings of the support set images, tensor of shape [sequence_length, batch_size, dim_feature]
+        :param target_vec: The embedding of the target image, tensor of shape [batch_size, dim_feature]
+        :return: Softmax pdf. Tensor with cosine similarities of shape [batch_size, sequence_length]
+        """
+
+        # Reshape
+        seqlen, bs, df = support_vecs.shape  # torch.Size([5, bs, 16384])
+        support_vecs = support_vecs.view(seqlen, bs, self.nframes, -1)  # torch.Size([5, bs, 8, 2048])
+
+        bs, df = target_vec.shape  # torch.Size([bs, 16384])
+        target_vec = target_vec.view(bs, self.nframes, -1)  # torch.Size([bs, 8, 2048])
+
+        # Normalize
+        support_vecs = F.normalize(support_vecs, p=2, dim=-1)
+        target_vec = F.normalize(target_vec, p=2, dim=-1)
+
+        similarities = []
+        for support_vec in support_vecs:
+            sv = support_vec.view(target_vec.shape)  # torch.Size([bs, 8, 2048])
+            vt = target_vec.transpose(-1, -2)  # torch.Size([bs, 2048, 8])
+            D = torch.bmm(sv, vt)  # S*Q  torch.Size([bs, 8, 8])
+            d_mean = torch.mean(D.view(bs, -1), dim=-1)  # torch.Size([bs]) checked
+            similarities.append(d_mean)  # torch.Size([bs])
+            
+        similarities = torch.stack(similarities)  # [nsupport, bs]
+        return similarities
+
+
+class FrameMeanCosineDistanceNetwork(nn.Module):
+    def __init__(self, nframes):
+        super(FrameMeanCosineDistanceNetwork, self).__init__()
+        self.nframes = nframes
+
+    def forward(self, support_vecs, target_vec):
+        """
+        Produces pdfs over the support set classes for the target set image.
+        :param support_vecs: The embeddings of the support set images, tensor of shape [sequence_length, batch_size, dim_feature]
+        :param target_vec: The embedding of the target image, tensor of shape [batch_size, dim_feature]
+        :return: Softmax pdf. Tensor with cosine similarities of shape [batch_size, sequence_length]
+        """
+
+        # Reshape
+        seqlen, bs, df = support_vecs.shape  # torch.Size([5, bs, 16384])
+        support_vecs = support_vecs.view(seqlen, bs, self.nframes, -1)  # torch.Size([5, bs, 8, 2048])
+
+        bs, df = target_vec.shape  # torch.Size([bs, 16384])
+        target_vec = target_vec.view(bs, self.nframes, -1)  # torch.Size([bs, 8, 2048])
+
+        # Normalize
+        support_vecs = F.normalize(support_vecs, p=2, dim=-1)
+        target_vec = F.normalize(target_vec, p=2, dim=-1)
+            
+        # print(support_vecs.shape, "!!-------!!!!!")
+        # print(target_vec.shape, "!!!!!!!!!!!!!!!!!!!!!!!")
+
+        # Fuse!
+        support_vecs = torch.mean(support_vecs, dim=-2)  # torch.Size([seqlen, bs, 2048])
+        target_vec = torch.mean(target_vec, dim=-2)  # torch.Size([bs, 2048])
+
+        # Dot product
+        similarities = []  # [nsupport * tensor(bs)]
+        for support_vec in support_vecs:
+            # [bs, d]->[bs,1,d] & [bs, d]->[bs,d,1] => [bs, 1, 1].squeeze(1).squeeze(1) => [bs]
+            # print(target_vec.shape, "!!!!!!!!!!!!!!!!!!!!!!!")
+            similarities.append(torch.bmm(support_vec.unsqueeze(1), target_vec.unsqueeze(2)).squeeze(1).squeeze(1))  
+
+        similarities = torch.stack(similarities)  # [nsupport, bs]
+        return similarities
+
+def self_message_passing(vec_frames, depth=1):
+    # expected size: [bs, nframes, dim_feature]
+    # expect normalized features
+    bs, nframes, dim_feature = vec_frames.shape
+
+    for i in range(depth):
+        # Normalize first!
+        vec_frames = F.normalize(vec_frames, p=2, dim=-1)
+        vf = vec_frames  # [bs,nf,df]
+        fv = vec_frames.transpose(-1, -2)  # [bs,df,nf]
+        D = torch.bmm(vf, fv)  # [bs,nf,nf]
+        vec_frames = torch.bmm(D, vf)
+
+    return vec_frames  # [bs,nf,df] unnormalized
+
+
+class FrameSelfContextMeanNetwork(nn.Module):
+    """
+    message-passing among frames
+    then mean pooling to get one feature vector for the video
+    """
+    def __init__(self, nframes):
+        super(FrameSelfContextMeanNetwork, self).__init__()
+        self.nframes = nframes
+
+    def forward(self, support_vecs, target_vec):
+        """
+        Produces pdfs over the support set classes for the target set image.
+        :param support_vecs: The embeddings of the support set images, tensor of shape [sequence_length, batch_size, dim_feature]
+        :param target_vec: The embedding of the target image, tensor of shape [batch_size, dim_feature]
+        :return: Softmax pdf. Tensor with cosine similarities of shape [batch_size, sequence_length]
+        """
+
+        # Reshape
+        seqlen, bs, df = support_vecs.shape  # torch.Size([5, bs, 16384])
+        support_vecs = support_vecs.view(seqlen, bs, self.nframes, -1)  # torch.Size([5, bs, 8, 2048])
+
+        bs, df = target_vec.shape  # torch.Size([bs, 16384])
+        target_vec = target_vec.view(bs, self.nframes, -1)  # torch.Size([bs, 8, 2048])
+
+        # Normalize
+        support_vecs = F.normalize(support_vecs, p=2, dim=-1)
+        target_vec = F.normalize(target_vec, p=2, dim=-1)
+
+        tv = self_message_passing(target_vec)  # still torch.Size([bs, 8, 2048])
+        tv_mean = torch.sum(tv, dim=1)  # torch.Size([bs, 2048]) checked   ## caution: not normalized before mean operation!
+
+        # Normalize again!!!
+        tv_mean = F.normalize(tv_mean, p=2, dim=-1)
+
+        similarities = []
+        for support_vec in support_vecs:
+            sv = support_vec.view(target_vec.shape)  # torch.Size([bs, 8, 2048])
+            sv = self_message_passing(sv)
+            sv_mean = torch.sum(sv, dim=1)  # torch.Size([bs, 2048])
+            
+            # Normalize again!!!
+            sv_mean = F.normalize(sv_mean, p=2, dim=-1)
+
+            # [bs,d]->[bs,1,d] & [bs,d]->[bs,d,1] => [bs,1,1].squeeze(1).squeeze(1) => [bs]
+            similarities.append(torch.bmm(sv_mean.unsqueeze(1), tv_mean.unsqueeze(2)).squeeze(1).squeeze(1))  
+            
+        similarities = torch.stack(similarities)  # [nsupport, bs]
+        return similarities
+
+
+# class FrameSelfContextStraightAlignNetwork(nn.Module):
+#     """
+#     message-passing among frames
+#     then mean pooling to get one feature vector for the video
+#     """
+#     def __init__(self, nframes):
+#         super(FrameSelfContextStraightAlignNetwork, self).__init__()
+#         self.nframes = nframes
+
+#     def forward(self, support_vecs, target_vec):
+#         """
+#         Produces pdfs over the support set classes for the target set image.
+#         :param support_vecs: The embeddings of the support set images, tensor of shape [sequence_length, batch_size, dim_feature]
+#         :param target_vec: The embedding of the target image, tensor of shape [batch_size, dim_feature]
+#         :return: Softmax pdf. Tensor with cosine similarities of shape [batch_size, sequence_length]
+#         """
+
+#         # Reshape
+#         seqlen, bs, df = support_vecs.shape  # torch.Size([5, bs, 16384])
+#         support_vecs = support_vecs.view(seqlen, bs, self.nframes, -1)  # torch.Size([5, bs, 8, 2048])
+
+#         bs, df = target_vec.shape  # torch.Size([bs, 16384])
+#         target_vec = target_vec.view(bs, self.nframes, -1)  # torch.Size([bs, 8, 2048])
+
+#         # Normalize
+#         support_vecs = F.normalize(support_vecs, p=2, dim=-1)
+#         target_vec = F.normalize(target_vec, p=2, dim=-1)
+
+#         tv = self_message_passing(target_vec)  # still torch.Size([bs, 8, 2048])
+
+#         # Normalize again!!!
+#         tv = F.normalize(tv, p=2, dim=-1)
+
+#         tv = tv.view(bs, -1)  # torch.Size([bs, 16384])
+
+#         similarities = []
+#         for support_vec in support_vecs:
+#             sv = support_vec.view(target_vec.shape)  # torch.Size([bs, 8, 2048])
+#             sv = self_message_passing(sv)
+#             # Normalize again!!!
+#             sv = F.normalize(sv, p=2, dim=-1)
+            
+
+#             # [bs,d]->[bs,1,d] & [bs,d]->[bs,d,1] => [bs,1,1].squeeze(1).squeeze(1) => [bs]
+#             similarities.append(torch.bmm(sv_mean.unsqueeze(1), tv_mean.unsqueeze(2)).squeeze(1).squeeze(1))  
+            
+#         similarities = torch.stack(similarities)  # [nsupport, bs]
+#         return similarities
+
 
 
 if __name__ == '__main__':
