@@ -421,7 +421,7 @@ class ResNetModel(nn.Module):
                 comments of the config file.
         """
 
-        self.debug = hasattr(cfg, "DEBUG")
+        self.debug = hasattr(cfg, "DEBUG") and cfg.DEBUG
 
         assert cfg.MODEL.ARCH in _POOL1.keys()
         pool_size = _POOL1[cfg.MODEL.ARCH]

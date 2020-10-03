@@ -22,12 +22,25 @@ def temporal_sampling(frames, start_idx, end_idx, num_samples):
             `num clip frames` x `channel` x `height` x `width`.
     """
 
+    """
     # print("{}, st:{}, ed:{}, num samples: {}".format(frames.shape[0], start_idx, end_idx, num_samples))
-
-    index = torch.linspace(start_idx, end_idx, num_samples)
+    index = torch.linspace(start_idx, end_idx, num_samples) 
     index = torch.clamp(index, 0, frames.shape[0] - 1).long()
     frames = torch.index_select(frames, 0, index)
+    return frames
+    """
 
+    index = torch.linspace(start_idx, end_idx, num_samples+1)  # +1 for interval endpoints
+    index = torch.clamp(index, 0, frames.shape[0] - 1).long()
+    # print(start_idx, end_idx, "|", index,"\n")
+    index = index[:-1]
+
+    seg_size = (end_idx-start_idx)/num_samples
+    offsets = (torch.rand(num_samples) * seg_size).long()
+    index = torch.clamp(index + offsets, 0, frames.shape[0] - 1).long()
+
+    frames = torch.index_select(frames, 0, index)
+    # print(start_idx, end_idx, "||", index,"\n\n")
     return frames
 
 
@@ -52,6 +65,7 @@ def get_start_end_idx(video_size, clip_size, clip_idx, num_clips):
         end_idx (int): the end frame index.
     """
     delta = max(video_size - clip_size, 0)
+
     if clip_idx == -1:
         # Random temporal sampling.
         start_idx = random.uniform(0, delta)
@@ -66,9 +80,19 @@ def get_start_end_idx(video_size, clip_size, clip_idx, num_clips):
     if num_clips == 1:
         return 0, video_size
 
-    # print("{}, {} | {}, {} | {}, {}".format(video_size, clip_size, clip_idx, num_clips, start_idx, end_idx))
+    print("vsize, csize, nclip, cid, st, ed: ", video_size, clip_size, num_clips, clip_idx, start_idx, end_idx, "\n")
+    return start_idx, end_idx
+
+    """
+    start_idx = random.uniform(0, delta)
+    end_idx = start_idx + clip_size - 1
+
+    print("vsize, csize, nclip, cid, st, ed: ", video_size, clip_size, num_clips, clip_idx, start_idx, end_idx, "\n")
 
     return start_idx, end_idx
+    """
+
+
 
 
 def pyav_decode_stream(

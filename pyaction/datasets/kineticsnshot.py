@@ -50,6 +50,10 @@ class Kineticsnshot(torch.utils.data.Dataset):
             num_retries (int): number of retries.
         """
 
+        self.debug = hasattr(cfg, "DEBUG") and cfg.DEBUG
+
+        self.square_jitter = hasattr(cfg.DATA, "SQUARE_JITTER") and cfg.DATA.SQUARE_JITTER
+
         # Unified test metric
         self.unified_eval = hasattr(cfg.TEST, "UNIFIED_EVAL") and cfg.TEST.UNIFIED_EVAL
 
@@ -87,6 +91,11 @@ class Kineticsnshot(torch.utils.data.Dataset):
         self.classes_per_set = cfg.FEW_SHOT.CLASSES_PER_SET
         self.samples_per_class = cfg.FEW_SHOT.SAMPLES_PER_CLASS 
 
+        if hasattr(cfg.DATA, "USE_REPLACED_CMN") and cfg.DATA.USE_REPLACED_CMN:
+            self.use_replaced_cmn_list = True
+        else:
+            self.use_replaced_cmn_list = False
+
         logger.info("Constructing Kinetics {}...".format(mode))
         self._construct_loader()
 
@@ -105,9 +114,11 @@ class Kineticsnshot(torch.utils.data.Dataset):
         else:
             name = self.mode
 
-        path_to_file = os.path.join(
-            self.cfg.DATA.PATH_TO_DATA_DIR, "{}.csv".format(name)
-        )
+        if self.use_replaced_cmn_list:
+            fn = "{}_replaced.csv".format(name)
+        else:
+            fn = "{}.csv".format(name)
+        path_to_file = os.path.join(self.cfg.DATA.PATH_TO_DATA_DIR, fn)
         assert os.path.exists(path_to_file), "{} dir not found".format(path_to_file)
 
         self._path_to_videos = []
@@ -276,10 +287,16 @@ class Kineticsnshot(torch.utils.data.Dataset):
                     self._spatial_temporal_idx[index] % self.cfg.TEST.NUM_SPATIAL_CROPS
                 )
 
-            min_scale, max_scale, crop_size = [self.cfg.DATA.TEST_CROP_SIZE] * 3
+            # min_scale, max_scale, crop_size = [self.cfg.DATA.TEST_CROP_SIZE] * 3
+
             # The testing is deterministic and no jitter should be performed.
             # min_scale, max_scale, and crop_size are expect to be the same.
-            assert len({min_scale, max_scale, crop_size}) == 1
+
+            # assert len({min_scale, max_scale, crop_size}) == 1
+
+            min_scale = max_scale = self.cfg.DATA.TEST_SCALE_SIZE
+            crop_size = self.cfg.DATA.TEST_CROP_SIZE
+
         else:
             raise NotImplementedError("Does not support {} mode".format(self.mode))
 
@@ -367,18 +384,42 @@ class Kineticsnshot(torch.utils.data.Dataset):
             frames (tensor): spatially sampled frames.
         """
         assert spatial_idx in [-1, 0, 1, 2]
+
         if spatial_idx == -1:
-            frames, _ = transform.random_short_side_scale_jitter(
-                frames, min_scale, max_scale
-            )
+
+            if hasattr(self, "square_jitter") and self.square_jitter:
+                frames = torch.nn.functional.interpolate(
+                    frames, size=(min_scale, min_scale), mode="bilinear", align_corners=False,
+                )
+            else:
+                frames, _ = transform.random_short_side_scale_jitter(
+                    frames, min_scale, max_scale
+                )
+
             frames, _ = transform.random_crop(frames, crop_size)
             frames, _ = transform.horizontal_flip(0.5, frames)
         else:
             # The testing is deterministic and no jitter should be performed.
             # min_scale, max_scale, and crop_size are expect to be the same.
-            assert len({min_scale, max_scale, crop_size}) == 1
-            frames, _ = transform.random_short_side_scale_jitter(
-                frames, min_scale, max_scale
-            )
+
+            # assert len({min_scale, max_scale, crop_size}) == 1
+            
+            if self.debug:
+                fr_sh_before = frames.shape
+            
+            if hasattr(self, "square_jitter") and self.square_jitter:
+                frames = torch.nn.functional.interpolate(
+                    frames, size=(min_scale, min_scale), mode="bilinear", align_corners=False,
+                )
+            else:
+                frames, _ = transform.random_short_side_scale_jitter(
+                    frames, min_scale, max_scale
+                )
+            
+            if self.debug:
+                fr_sh_after = frames.shape
+                print(fr_sh_before, "||", fr_sh_after,"\n")
+
             frames, _ = transform.uniform_crop(frames, crop_size, spatial_idx)
+        
         return frames

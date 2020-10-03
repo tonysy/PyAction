@@ -195,6 +195,10 @@ class ResNetBasicHead(nn.Module):
             )
 
     def forward(self, inputs):
+
+        # if self.debug:
+        #     import pdb; pdb.set_trace()
+
         assert (
             len(inputs) == self.num_pathways
         ), "Input tensor does not contain {} pathway".format(self.num_pathways)
@@ -203,11 +207,20 @@ class ResNetBasicHead(nn.Module):
             m = getattr(self, "pathway{}_avgpool".format(pathway))
             pool_out.append(m(inputs[pathway]))
         x = torch.cat(pool_out, 1)
+
+        assert x.shape[-1] == x.shape[-2] == 1
+
+        if self.debug:
+            import pdb; pdb.set_trace()
+
         # (N, C, T, H, W) -> (N, T, H, W, C).
         x = x.permute((0, 2, 3, 4, 1))
         # Perform dropout.
         if hasattr(self, "dropout"):
             x = self.dropout(x)
+
+        # if self.debug:
+        #     import pdb; pdb.set_trace()
 
         if not self.get_feature:
             x = self.projection(x)
@@ -215,6 +228,9 @@ class ResNetBasicHead(nn.Module):
             if not self.training:
                 x = self.act(x)
                 x = x.mean([1, 2, 3])
+
+        # if self.debug:
+        #     import pdb; pdb.set_trace()
 
         # x = x.view(x.shape[0], -1)
         # when test:
@@ -224,7 +240,7 @@ class ResNetBasicHead(nn.Module):
 
         # print(x.shape, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 
-        if self.debug:
-            import pdb; pdb.set_trace()
+        # if self.debug:
+        #     import pdb; pdb.set_trace()
 
         return x

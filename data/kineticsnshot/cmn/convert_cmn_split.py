@@ -1,9 +1,19 @@
 # Please put cmn split folder, i.e. kinetics-100/[train/val/test].list in this folder
 
+##########################
+from_replaced_list = True
+##########################
+
 import os
+if from_replaced_list:
+    folder = "kinetics-100-replaced"
+    fn_suffix = "_replaced"
+else:
+    folder = "kinetics-100"
+    fn_suffix = ""
 
 for name in ["train", "val", "test"]:
-    f = open("kinetics-100/{}.list".format(name), "r")
+    f = open("{}/{}.list".format(folder, name), "r")
     assert f is not None
     lines = f.readlines()
     f.close()
@@ -17,7 +27,7 @@ for name in ["train", "val", "test"]:
     print(dict_class_label)
 
     # gen csv
-    with open("{}.csv".format(name), "w") as csv_file:
+    with open("{}{}.csv".format(name, fn_suffix), "w") as csv_file:
         for line in lines:
             line = line.replace(" ", "_").rstrip("\n")
             c = line.split("/")[0]
@@ -27,6 +37,6 @@ for name in ["train", "val", "test"]:
             )
     
     # verify csv
-    with open("{}.csv".format(name), "r") as csv_file:
+    with open("{}{}.csv".format(name, fn_suffix), "r") as csv_file:
         lines = csv_file.readlines()
         print("{}: {} lines.".format(name, len(lines)))

@@ -18,7 +18,8 @@ from .BidirectionalLSTM import BidirectionalLSTM
 from .DistanceNetwork import CosineDistanceNetwork, EuclideanDistanceNetwork, \
         FrameMaxCosineDistanceNetwork, FrameStraightAlignCosineDistanceNetwork, \
         FrameGreedyAlignCosineDistanceNetwork, FrameSelfContextMeanNetwork, \
-        FrameCosineDistanceMeanNetwork, FrameMeanCosineDistanceNetwork
+        FrameCosineDistanceMeanNetwork, FrameMeanCosineDistanceNetwork, \
+        FrameFrechetMeanCosineDistanceNetwork
 from .AttentionalClassify import AttentionalClassify
 import torch.nn.functional as F
 from pyaction.utils.freeze import freeze  # Freeze network function
@@ -75,6 +76,8 @@ class MatchingNetwork(nn.Module):
             self.dn = FrameCosineDistanceMeanNetwork(nframes=cfg.DATA.NUM_FRAMES)
         elif hasattr(cfg.FEW_SHOT, "DISTANCE") and cfg.FEW_SHOT.DISTANCE == "FRAME_MEAN_COSINE":
             self.dn = FrameMeanCosineDistanceNetwork(nframes=cfg.DATA.NUM_FRAMES)
+        elif hasattr(cfg.FEW_SHOT, "DISTANCE") and cfg.FEW_SHOT.DISTANCE == "FRAME_FRECHETMEAN_COSINE":
+            self.dn = FrameFrechetMeanCosineDistanceNetwork(nframes=cfg.DATA.NUM_FRAMES)
         else:  # DEFAULT
             self.dn = CosineDistanceNetwork()
 

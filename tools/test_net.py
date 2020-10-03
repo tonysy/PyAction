@@ -26,6 +26,37 @@ import pyaction.utils.multiprocessing as mpu
 from config import config
 from tqdm import tqdm
 
+from pyaction.utils.precise_bn_fewshot import get_bn_modules, update_bn_stats
+
+def calculate_and_update_precise_bn(loader, model, cfg, num_iters=200):
+    """
+    Update the stats in bn layers by calculate the precise stats.
+    Args:
+        loader (loader): data loader to provide training data.
+        model (model): model to update the bn stats.
+        num_iters (int): number of iterations to compute and update the bn stats.
+    """
+
+    num_classes = cfg.FEW_SHOT.CLASSES_PER_SET
+    def _gen_loader():
+        for support_x, support_y, target_x, _ in loader:
+
+            support_y = torch.unsqueeze(support_y, 2)  # (batchsize, classes_per_set * samples_per_class, 1)
+            batch_size = support_y.size()[0]
+            n_samples = support_y.size()[1]
+            support_y_one_hot = torch.zeros(batch_size, n_samples, num_classes)  # the last dim as one-hot
+            support_y_one_hot.scatter_(2, support_y, 1.0)
+
+            support_x = support_x.cuda(non_blocking=True)
+            support_y_one_hot = support_y_one_hot.cuda(non_blocking=True)
+            target_x = target_x.cuda(non_blocking=True)
+            yield support_x, support_y_one_hot, target_x
+
+    # Update the bn stats.
+    update_bn_stats(model, _gen_loader(), num_iters)
+
+
+
 def parse_args():
     """
     Parse the following arguments for the video training and testing pipeline.
@@ -87,6 +118,10 @@ def load_config(args):
     # Setup cfg.
     # cfg = get_cfg()
     cfg = config
+
+    # Fix test pool size bug
+    cfg.DATA.CROP_SIZE = cfg.DATA.TEST_CROP_SIZE
+
     # Load config from cfg.
     # if args.cfg_file is not None:
     #     cfg.merge_from_file(args.cfg_file)
@@ -125,7 +160,7 @@ def perform_test(test_loader, model, test_meter, cfg):
             results.
         cfg (CfgNode): configs. Details can be found in
             slowfast/config/defaults.py
-    """
+    """    
     # Enable eval mode.
     model.eval()
     test_meter.iter_tic()
@@ -241,6 +276,10 @@ def test(cfg):
         "different config with base class:\n{}".format(cfg.show_diff(base_config))
     )
     is_master = du.is_master_proc(cfg.NUM_GPUS * cfg.NUM_SHARDS)
+
+    if hasattr(cfg.TEST, "USE_TEST_PRECISE_BN") and cfg.TEST.USE_TEST_PRECISE_BN:
+        calculate_and_update_precise_bn(cfg)
+
     if hasattr(cfg.TEST, "LOAD_EPOCH") and cfg.TEST.LOAD_EPOCH:
         for cur_epoch in cfg.TEST.EPOCH_IDS:
             for cur_split in cfg.TEST.SPLITS:
@@ -261,10 +300,14 @@ def test(cfg):
     
 # Test on single model
 def test_model(cfg, is_master):
+    # version: 1.2
+    inf_path = "inference_logs_v1.4"
+    if hasattr(cfg.TEST, "SUFFIX") and cfg.TEST.SUFFIX:
+        inf_path += "_" + cfg.TEST.SUFFIX
 
     # Create the log folder
     if is_master:
-        logpath = os.path.join(cfg.OUTPUT_DIR, "inference_logs")
+        logpath = os.path.join(cfg.OUTPUT_DIR, inf_path)
         if not os.path.exists(logpath):
             os.mkdir(logpath)
 
@@ -273,7 +316,7 @@ def test_model(cfg, is_master):
     logger = logging.setup_logging(
         os.path.join(
             cfg.OUTPUT_DIR, 
-            "inference_logs",
+            inf_path,
             "{}_{}.log".format(cfg.TEST.CUR_SPLIT, logfilename)
         )
     )
@@ -327,8 +370,18 @@ def test_model(cfg, is_master):
         model_name = cfg.TEST.CHECKPOINT_FILE_PATH  # for print
     elif hasattr(cfg.TEST, "LOAD_EPOCH") and cfg.TEST.LOAD_EPOCH:
         logger.info("Load from the {}-th epoch...".format(cfg.TEST.CUR_EPOCH))
-        cpath = cu.get_checkpoint(cfg.OUTPUT_DIR, cfg.TEST.CUR_EPOCH)
-        cu.load_checkpoint(cpath, model, cfg.NUM_GPUS > 1)
+
+        if cfg.TEST.CUR_EPOCH == 0:
+            cpath = cfg.TRAIN.CHECKPOINT_FILE_PATH  # use pretrain!
+            cu.load_checkpoint(
+                cpath, 
+                model.module.g if hasattr(model, "module") else model.g, 
+                cfg.NUM_GPUS > 1,
+                strict=False,
+            )
+        else:
+            cpath = cu.get_checkpoint(cfg.OUTPUT_DIR, cfg.TEST.CUR_EPOCH)
+            cu.load_checkpoint(cpath, model, cfg.NUM_GPUS > 1)
         model_name = cpath  # for print
     elif cu.has_checkpoint(cfg.OUTPUT_DIR):
         logger.info("Loading from last checkpoint...")
