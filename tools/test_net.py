@@ -142,7 +142,7 @@ def load_config(args):
     cu.make_checkpoint_dir(cfg.OUTPUT_DIR)
     return cfg
 
-
+@torch.no_grad()
 def perform_test(test_loader, model, test_meter, cfg):
     """
     For classification:

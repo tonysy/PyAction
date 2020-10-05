@@ -111,6 +111,12 @@ class Kineticsnshot(torch.utils.data.Dataset):
         if self.mode == "test":
             assert hasattr(self.cfg.TEST, "CUR_SPLIT")
             name = self.cfg.TEST.CUR_SPLIT
+        elif self.mode == "val":
+            if hasattr(self.cfg.TRAIN, "TEST_AS_VAL") and self.cfg.TRAIN.TEST_AS_VAL:
+                print("use test split as validation!!!!!!!!!!")
+                name = "test"
+            else:
+                name = self.mode
         else:
             name = self.mode
 
