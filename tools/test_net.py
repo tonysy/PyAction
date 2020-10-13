@@ -371,12 +371,13 @@ def test_model(cfg, is_master):
     elif hasattr(cfg.TEST, "LOAD_EPOCH") and cfg.TEST.LOAD_EPOCH:
         logger.info("Load from the {}-th epoch...".format(cfg.TEST.CUR_EPOCH))
 
-        if cfg.TEST.CUR_EPOCH == 0:
-            cpath = cfg.TRAIN.CHECKPOINT_FILE_PATH  # use pretrain!
+        if cfg.TEST.CUR_EPOCH == 0:  # use pretrain!
+            cpath = cfg.TRAIN.CHECKPOINT_FILE_PATH  
             cu.load_checkpoint(
                 cpath, 
                 model.module.g if hasattr(model, "module") else model.g, 
                 cfg.NUM_GPUS > 1,
+                inflation=True,
                 strict=False,
             )
         else:

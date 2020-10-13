@@ -242,11 +242,6 @@ class Kineticsnshot(torch.utils.data.Dataset):
         support_y = torch.tensor(support_y)
         target_x = torch.stack(target_x)
         target_y = torch.tensor(target_y)
-        
-        # print(support_x.size())
-        # print(support_y.size())
-        # print(target_x.size())
-        # print(target_y.size())
 
         # return ret
         return support_x, support_y, target_x, target_y
@@ -422,9 +417,9 @@ class Kineticsnshot(torch.utils.data.Dataset):
                     frames, min_scale, max_scale
                 )
             
-            if self.debug:
-                fr_sh_after = frames.shape
-                print(fr_sh_before, "||", fr_sh_after,"\n")
+            # if self.debug:
+            #     fr_sh_after = frames.shape
+            #     print(fr_sh_before, "||", fr_sh_after,"\n")
 
             frames, _ = transform.uniform_crop(frames, crop_size, spatial_idx)
         

@@ -395,6 +395,8 @@ class ResNetModel(nn.Module):
         """
         super(ResNetModel, self).__init__()
 
+        self.cfg = cfg
+
         # Frame-Fuse
         if hasattr(cfg, "FRAME_FUSE") and cfg.FRAME_FUSE == "FRAME_CAT":
             self.feature_fuse = "FRAME_CAT"
@@ -564,29 +566,43 @@ class ResNetModel(nn.Module):
 
     def forward(self, x, bboxes=None):
         # torch.Size([bs, 3, 8, 224, 224])
-        # import pdb; 
-        # pdb.set_trace()
+
+        if self.debug:
+            import pdb; pdb.set_trace()
 
         x = self.s1(x)  # torch.Size([bs, 64, 8, 56, 56])
-        # pdb.set_trace()
+        
+        if self.debug:
+            import pdb; pdb.set_trace()
         
         x = self.s2(x)  # torch.Size([bs, 256, 8, 56, 56])
-        # pdb.set_trace()
+
+        if self.debug:
+            import pdb; pdb.set_trace()
 
         for pathway in range(self.num_pathways):
             pool = getattr(self, "pathway{}_pool".format(pathway))
-            x[pathway] = pool(x[pathway])
-        # pdb.set_trace()
+            x[pathway] = pool(x[pathway])  # torch.Size([bs, 256, 4, 56, 56])
+
+        if self.debug:
+            import pdb; pdb.set_trace()
+
         # torch.Size([bs, 256, 4, 56, 56])
 
         x = self.s3(x)  # torch.Size([bs, 512, 4, 28, 28])
-        # pdb.set_trace()
+
+        if self.debug:
+            import pdb; pdb.set_trace()
         
         x = self.s4(x)  # torch.Size([bs, 1024, 4, 14, 14])
-        # pdb.set_trace()
+
+        if self.debug:
+            import pdb; pdb.set_trace()
         
         x = self.s5(x)  # torch.Size([bs, 2048, 4, 7, 7])
-        # pdb.set_trace()
+
+        if self.debug:
+            import pdb; pdb.set_trace()
 
         # print(x[0].shape, "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
@@ -595,5 +611,8 @@ class ResNetModel(nn.Module):
         else:
             x = self.head(x)
         # pdb.set_trace()  # torch.Size([2048])
+
+        if self.debug:
+            import pdb; pdb.set_trace()
 
         return x

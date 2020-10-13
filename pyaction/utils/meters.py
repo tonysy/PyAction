@@ -637,7 +637,7 @@ class TrainMeter(object):
             # Loss
             writer.add_scalar("Loss/train_loss", stats["loss"], iter_idx)
 
-    def log_epoch_stats(self, cur_epoch, writer):
+    def log_epoch_stats(self, cur_epoch, writer, ext_items=None):
         """
         Log the stats of the current epoch.
         Args:
@@ -663,14 +663,20 @@ class TrainMeter(object):
             "lr": self.lr,
             "mem": int(np.ceil(mem_usage)),
         }
+        
+        if ext_items:
+            stats.update(ext_items)  # expect dict
+        
         logging.log_json_stats(stats)
 
         if du.is_master_proc():
             # Add tensorboard metrix for visualization
             writer.add_scalar("Epoch/train_loss", stats["loss"], cur_epoch + 1)
-
             writer.add_scalar("Epoch/train_top1_err", stats["top1_err"], cur_epoch + 1)
             writer.add_scalar("Epoch/train_top5_err", stats["top5_err"], cur_epoch + 1)
+            if ext_items:
+                for k in ext_items:
+                    writer.add_scalar("Epoch/" + k, ext_items[k], cur_epoch)
 
 
 class ValMeter(object):
@@ -782,7 +788,7 @@ class ValMeter(object):
             "mem": int(np.ceil(mem_usage)),
         }
         logging.log_json_stats(stats)
-
         if du.is_master_proc():
             writer.add_scalar("Epoch/val_top1_err", stats["top1_err"], cur_epoch)
             writer.add_scalar("Epoch/val_top5_err", stats["top5_err"], cur_epoch)
+

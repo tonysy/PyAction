@@ -28,6 +28,7 @@ from pyaction.utils.meters import AVAMeter, TrainMeter, ValMeter
 from net import build_model
 from pyaction.utils.freeze_bn import freeze_bn
 
+
 def train_epoch(train_loader, model, optimizer, train_meter, cur_epoch, cfg, writer):
     """
     Perform the video training for one epoch.
@@ -185,12 +186,18 @@ def train_epoch(train_loader, model, optimizer, train_meter, cur_epoch, cfg, wri
             train_meter.update_stats(
                 1.0-acc, .0, loss, lr, support_x.size(0) * cfg.NUM_GPUS
             )
-
         train_meter.log_iter_stats(cur_epoch, cur_iter, writer)
         train_meter.iter_tic()
+    
+    if hasattr(cfg, "EXT_LOG") and cfg.EXT_LOG:
+        from ext_log import get_ext_items  # function
 
     # Log epoch stats.
-    train_meter.log_epoch_stats(cur_epoch, writer)
+    if hasattr(cfg, "EXT_LOG") and cfg.EXT_LOG:
+        ext_items = get_ext_items(model)
+    else:
+        ext_items = None
+    train_meter.log_epoch_stats(cur_epoch, writer, ext_items=ext_items)
     train_meter.reset()
 
 
@@ -330,6 +337,7 @@ def train(cfg):
         cfg (CfgNode): configs. Details can be found in
             slowfast/config/defaults.py
     """
+
     # Set random seed from configs.
     np.random.seed(cfg.RNG_SEED)
     torch.manual_seed(cfg.RNG_SEED)

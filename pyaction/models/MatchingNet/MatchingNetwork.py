@@ -19,7 +19,9 @@ from .DistanceNetwork import CosineDistanceNetwork, EuclideanDistanceNetwork, \
         FrameMaxCosineDistanceNetwork, FrameStraightAlignCosineDistanceNetwork, \
         FrameGreedyAlignCosineDistanceNetwork, FrameSelfContextMeanNetwork, \
         FrameCosineDistanceMeanNetwork, FrameMeanCosineDistanceNetwork, \
-        FrameFrechetMeanCosineDistanceNetwork
+        FrameFrechetMeanCosineDistanceNetwork, \
+        FrameCosineDistanceSumNetwork, \
+        FrameOTAMDistanceNetwork
 from .AttentionalClassify import AttentionalClassify
 import torch.nn.functional as F
 from pyaction.utils.freeze import freeze  # Freeze network function
@@ -28,7 +30,12 @@ def update_frame_fuse_method(cfg):
     if hasattr(cfg.FEW_SHOT, "DISTANCE"):
         if str(cfg.FEW_SHOT.DISTANCE).startswith("FRAME"):
             cfg.FRAME_FUSE = "FRAME_CAT"
-            cfg.MODEL.ARCH = "c2d_nopool"
+            if cfg.MODEL.ARCH.startswith("c2d"):
+                cfg.MODEL.ARCH = "c2d_nopool"
+            elif cfg.MODEL.ARCH.startswith("i3d"):
+                cfg.MODEL.ARCH = "i3d_nopool"
+            else:
+                raise RuntimeError("Error from MarchingNetwork.py: unexpected model arch, please check!")
             return
     cfg.FRAME_FUSE = "FRAME_MEAN"
 
@@ -74,15 +81,28 @@ class MatchingNetwork(nn.Module):
             self.dn = FrameSelfContextMeanNetwork(nframes=cfg.DATA.NUM_FRAMES)
         elif hasattr(cfg.FEW_SHOT, "DISTANCE") and cfg.FEW_SHOT.DISTANCE == "FRAME_COSINE_MEAN":
             self.dn = FrameCosineDistanceMeanNetwork(nframes=cfg.DATA.NUM_FRAMES)
+        elif hasattr(cfg.FEW_SHOT, "DISTANCE") and cfg.FEW_SHOT.DISTANCE == "FRAME_COSINE_SUM":
+            self.dn = FrameCosineDistanceSumNetwork(nframes=cfg.DATA.NUM_FRAMES)
         elif hasattr(cfg.FEW_SHOT, "DISTANCE") and cfg.FEW_SHOT.DISTANCE == "FRAME_MEAN_COSINE":
             self.dn = FrameMeanCosineDistanceNetwork(nframes=cfg.DATA.NUM_FRAMES)
         elif hasattr(cfg.FEW_SHOT, "DISTANCE") and cfg.FEW_SHOT.DISTANCE == "FRAME_FRECHETMEAN_COSINE":
             self.dn = FrameFrechetMeanCosineDistanceNetwork(nframes=cfg.DATA.NUM_FRAMES)
+        elif hasattr(cfg.FEW_SHOT, "DISTANCE") and cfg.FEW_SHOT.DISTANCE == "FRAME_OTAM":
+            lam = cfg.FEW_SHOT.LAMBDA if hasattr(cfg.FEW_SHOT, "LAMBDA") else None
+            ndirection = cfg.FEW_SHOT.NDIR if hasattr(cfg.FEW_SHOT, "NDIR") else None
+            self.dn = FrameOTAMDistanceNetwork(nframes=cfg.DATA.NUM_FRAMES, lam=lam, ndirection=ndirection)
         else:  # DEFAULT
             self.dn = CosineDistanceNetwork()
 
+        # Sanity check
+        print(self.dn, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        
         # Classifier
         self.classify = AttentionalClassify()
+
+        # Learnable temperature
+        if hasattr(self.cfg.FEW_SHOT, "LEARN_TEMP") and cfg.FEW_SHOT.LEARN_TEMP:
+            self.temperature = nn.Parameter(torch.tensor([1.0]), requires_grad=True)
 
 
     def forward(self, support_images, support_labels_one_hot, target_images, target_labels=None):
@@ -120,8 +140,21 @@ class MatchingNetwork(nn.Module):
             similarities = self.dn(support_vecs=outputs[:-1], target_vec=outputs[-1])  # [nsupport, batchsize]
             similarities = similarities.t()  # [batchsize, nsupport]
 
+            # Softmax with temporature
+            if hasattr(self.cfg.FEW_SHOT, "TEMP"):
+                temperature = self.cfg.FEW_SHOT.TEMP
+                similarities *= temperature
+            elif hasattr(self.cfg.FEW_SHOT, "LEARN_TEMP") and self.cfg.FEW_SHOT.LEARN_TEMP:
+                similarities *= self.temperature
+
+            if hasattr(self.cfg, "TEST_DEBUG") and self.cfg.TEST_DEBUG:
+                import pdb; pdb.set_trace()
+
             # produce predictions for target probabilities
             preds = self.classify(similarities, support_labels_one_hot=support_labels_one_hot)  # [batch_size, sequence_length]
+
+            if hasattr(self.cfg, "TEST_DEBUG") and self.cfg.TEST_DEBUG:
+                import pdb; pdb.set_trace()
 
             if target_labels is None:
                 preds_list.append(preds)
@@ -135,6 +168,9 @@ class MatchingNetwork(nn.Module):
                 else:
                     accuracy += torch.mean((indices == target_labels[:, i]).float())
                     cross_entropy_loss += F.cross_entropy(preds, target_labels[:, i].long())
+
+                if hasattr(self.cfg, "TEST_DEBUG") and self.cfg.TEST_DEBUG:
+                    import pdb; pdb.set_trace()
 
             # delete the last target data
             encoded_images.pop()

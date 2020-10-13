@@ -100,7 +100,7 @@ _config_dict = dict(
         # Loss function.
         LOSS_FUNC="cross_entropy",
         # Model architectures that has one single pathway.
-        SINGLE_PATHWAY_ARCH=["c2d", "i3d", "slowonly", "c2d_nopool"],
+        SINGLE_PATHWAY_ARCH=["c2d", "i3d", "slowonly", "c2d_nopool", "i3d_nopool"],
         # Model architectures that has multiple pathways.
         MULTI_PATHWAY_ARCH=["slowfast"],
         # Dropout rate before final projection in the backbone.

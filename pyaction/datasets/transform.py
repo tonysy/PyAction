@@ -147,6 +147,9 @@ def uniform_crop(images, size, spatial_idx, boxes=None):
         cropped_boxes (ndarray or None): the cropped boxes with dimension of
             `num boxes` x 4.
     """
+
+    # print("uniform_crop!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!") # checked
+
     assert spatial_idx in [0, 1, 2]
     height = images.shape[2]
     width = images.shape[3]

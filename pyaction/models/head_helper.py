@@ -196,8 +196,8 @@ class ResNetBasicHead(nn.Module):
 
     def forward(self, inputs):
 
-        # if self.debug:
-        #     import pdb; pdb.set_trace()
+        if self.debug:
+            import pdb; pdb.set_trace()
 
         assert (
             len(inputs) == self.num_pathways
