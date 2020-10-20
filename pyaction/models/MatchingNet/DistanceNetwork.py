@@ -552,12 +552,15 @@ class FrameOTAMDistanceNetwork(nn.Module):
     def dp(self, D):
         """
         D: [bs, nframe, nframe] frame cos distance matrix of a pair of videos
+        version: 2.0
         """
+
         bs, n, m = D.shape
         assert n == m == self.nframes
 
+        """
         DP = torch.zeros(bs, n, n+1)
-
+                
         assert DP[:,0,1:].shape == D[:,0].shape
         DP[:,0,1:] = D[:,0]  # row 0
 
@@ -575,6 +578,40 @@ class FrameOTAMDistanceNetwork(nn.Module):
         # the last column
         d = DP[:,:,-1]
         assert d.shape == (bs, n)
+        # maximum of the last column
+        ret = self.lam * torch.logsumexp(d/self.lam, dim=-1)
+        assert ret.shape == (bs,)  # (bs) false
+        
+        if self.ndirection == -1:
+            import pdb; pdb.set_trace()
+
+        return ret.cuda()
+        """
+
+        DP = torch.zeros(bs, n, n).cuda()
+
+        # col 0
+        DP[:,:,0] = D[:,:,0]
+
+        # row 0
+        for i in range(1, n):
+            DP[:,0,i] = DP[:,0,i-1] + D[:,0,i]
+
+        if self.ndirection == -1:
+            import pdb; pdb.set_trace()
+
+        for i in range(1, n):
+            d = torch.stack((DP[:,:-1,i-1]/self.lam, DP[:,1:,i-1]/self.lam), dim=-1)
+            assert d.shape == (bs, n-1, 2)
+            DP[:,1:,i] = self.lam * torch.logsumexp(d, dim=-1) + D[:,1:,i]  # forgot to add D[:,1:,i]
+
+            if self.ndirection == -1:
+                import pdb; pdb.set_trace()
+
+        # the last column
+        d = DP[:,:,-1]
+        assert d.shape == (bs, n)
+
         # maximum of the last column
         ret = self.lam * torch.logsumexp(d/self.lam, dim=-1)
         assert ret.shape == (bs,)  # (bs) false
