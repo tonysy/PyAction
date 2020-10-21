@@ -67,7 +67,13 @@ class MatchingNetwork(nn.Module):
         # Full Context Embedding
         if self.fce:
             self.lstm = BidirectionalLSTM(layer_sizes=[32], vector_dim=cfg.RESNET.FEATURE_DIM)  # self.g.outSize
-        
+
+        # Reduce Feature vector dim
+        if hasattr(cfg.FEW_SHOT, "LINEAR"):
+            df = cfg.FEW_SHOT.LINEAR
+            self.ln = nn.Linear(2048, df)
+            print("Reduced dim: ", df, "!!!!!!!!!!!!!!!!")
+
         # Distance Network
         if hasattr(cfg.FEW_SHOT, "DISTANCE") and cfg.FEW_SHOT.DISTANCE == "EUCLIDEAN":
             self.dn = EuclideanDistanceNetwork()
@@ -121,6 +127,14 @@ class MatchingNetwork(nn.Module):
         for i in np.arange(support_images.size(1)):
             one_path_wrapped_input = [support_images[:,i,:,:,:,:]]  # for passing stem_helper check
             gen_encode = self.g(one_path_wrapped_input)  # [batchsize, feature_dim]
+
+            ### Reduce Feature vector dim ###
+            if hasattr(self.cfg.FEW_SHOT, "LINEAR"):
+                bs, _ = gen_encode.shape  # torch.Size([bs, 16384])
+                gen_encode = gen_encode.view(bs, self.dn.nframes, -1)
+                gen_encode = self.ln(gen_encode)
+                gen_encode = gen_encode.view(bs, -1)
+
             encoded_images.append(gen_encode)
 
         if target_labels is None:
@@ -130,6 +144,14 @@ class MatchingNetwork(nn.Module):
         for i in np.arange(n_target):
             one_path_wrapped_input = [target_images[:,i,:,:,:,:]]
             gen_encode = self.g(one_path_wrapped_input)
+
+            ### Reduce Feature vector dim ###
+            if hasattr(self.cfg.FEW_SHOT, "LINEAR"):
+                bs, _ = gen_encode.shape  # torch.Size([bs, 16384])
+                gen_encode = gen_encode.view(bs, self.dn.nframes, -1)
+                gen_encode = self.ln(gen_encode)
+                gen_encode = gen_encode.view(bs, -1)
+
             encoded_images.append(gen_encode)
             outputs = torch.stack(encoded_images)  # [n_support+1, batchsize, feature_dim]
 
