@@ -17,11 +17,12 @@ from pyaction.models.video_model_builder import ResNetModel
 from .BidirectionalLSTM import BidirectionalLSTM
 from .DistanceNetwork import CosineDistanceNetwork, EuclideanDistanceNetwork, \
         FrameMaxCosineDistanceNetwork, FrameStraightAlignCosineDistanceNetwork, \
-        FrameGreedyAlignCosineDistanceNetwork, FrameSelfContextMeanNetwork, \
+        FrameGreedyAlignCosineDistanceNetwork, \
         FrameCosineDistanceMeanNetwork, FrameMeanCosineDistanceNetwork, \
-        FrameFrechetMeanCosineDistanceNetwork, \
         FrameCosineDistanceSumNetwork, \
-        FrameOTAMDistanceNetwork
+        FrameOTAMDistanceNetwork, \
+        TemporalGNN, \
+        FrameMeanLearnableDistanceNetwork
 from .AttentionalClassify import AttentionalClassify
 import torch.nn.functional as F
 from pyaction.utils.freeze import freeze  # Freeze network function
@@ -74,6 +75,11 @@ class MatchingNetwork(nn.Module):
             self.ln = nn.Linear(2048, df)
             print("Reduced dim: ", df, "!!!!!!!!!!!!!!!!")
 
+        # Temporal GNN
+        if hasattr(self.cfg.FEW_SHOT, "TGNN") and self.cfg.FEW_SHOT.TGNN:
+            cos_scaler = cfg.FEW_SHOT.TGNN_COS_SCALER if hasattr(cfg.FEW_SHOT, "TGNN_COS_SCALER") else None
+            self.tgnn = TemporalGNN(nframes=cfg.DATA.NUM_FRAMES, cos_scaler=cos_scaler)
+
         # Distance Network
         if hasattr(cfg.FEW_SHOT, "DISTANCE") and cfg.FEW_SHOT.DISTANCE == "EUCLIDEAN":
             self.dn = EuclideanDistanceNetwork()
@@ -97,6 +103,8 @@ class MatchingNetwork(nn.Module):
             lam = cfg.FEW_SHOT.LAMBDA if hasattr(cfg.FEW_SHOT, "LAMBDA") else None
             ndirection = cfg.FEW_SHOT.NDIR if hasattr(cfg.FEW_SHOT, "NDIR") else None
             self.dn = FrameOTAMDistanceNetwork(nframes=cfg.DATA.NUM_FRAMES, lam=lam, ndirection=ndirection)
+        elif hasattr(cfg.FEW_SHOT, "DISTANCE") and cfg.FEW_SHOT.DISTANCE == "FRAME_MEAN_LEARNABLE":
+            self.dn = FrameMeanLearnableDistanceNetwork(nframes=cfg.DATA.NUM_FRAMES)
         else:  # DEFAULT
             self.dn = CosineDistanceNetwork()
 
@@ -157,6 +165,11 @@ class MatchingNetwork(nn.Module):
 
             if self.fce:
                 outputs, _, __ = self.lstm(outputs)  # [n_support+1, batchsize, feature_dim]
+
+            if hasattr(self.cfg.FEW_SHOT, "TGNN") and self.cfg.FEW_SHOT.TGNN:
+                assert n_target == 1  # should only pass tgnn network one time!
+                for output in outputs:
+                    output = self.tgnn(output)
 
             # get similarity between support set embeddings and target
             similarities = self.dn(support_vecs=outputs[:-1], target_vec=outputs[-1])  # [nsupport, batchsize]
