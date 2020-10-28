@@ -547,6 +547,13 @@ class ResNetModel(nn.Module):
             else:
                 temp_pool_size = cfg.DATA.NUM_FRAMES // pool_size[0][0]
 
+            ### 10/25 ##
+            # support spatial pool off
+            no_spatial_pool = False
+            if hasattr(cfg, "FEW_SHOT"):
+                if hasattr(cfg.FEW_SHOT, "DISTANCE") and cfg.FEW_SHOT.DISTANCE == "FRAME_MEAN_MEAN_COSINE":
+                    no_spatial_pool = True
+
             self.head = head_helper.ResNetBasicHead(
                 dim_in=[width_per_group * 32],
                 num_classes=cfg.MODEL.NUM_CLASSES,
@@ -562,6 +569,7 @@ class ResNetModel(nn.Module):
                 get_feature=self.get_feature,
                 feature_dim=self.feature_dim,
                 debug=self.debug,
+                no_spatial_pool=no_spatial_pool
             )
 
     def forward(self, x, bboxes=None):

@@ -139,7 +139,7 @@ class ResNetBasicHead(nn.Module):
 
     def __init__(
         self, dim_in, num_classes, pool_size, dropout_rate=0.0, act_func="softmax",\
-            get_feature=False, feature_dim=None, debug=False):
+            get_feature=False, feature_dim=None, debug=False, no_spatial_pool=False):
         self.debug = debug
         """
         The `__init__` method of any subclass should also contain these
@@ -172,6 +172,8 @@ class ResNetBasicHead(nn.Module):
         self.get_feature = get_feature
         self.feature_dim = feature_dim
 
+        self.no_spatial_pool = no_spatial_pool  ###
+
         for pathway in range(self.num_pathways):
             avg_pool = nn.AvgPool3d(pool_size[pathway], stride=1)
             self.add_module("pathway{}_avgpool".format(pathway), avg_pool)
@@ -203,12 +205,22 @@ class ResNetBasicHead(nn.Module):
             len(inputs) == self.num_pathways
         ), "Input tensor does not contain {} pathway".format(self.num_pathways)
         pool_out = []
-        for pathway in range(self.num_pathways):
-            m = getattr(self, "pathway{}_avgpool".format(pathway))
-            pool_out.append(m(inputs[pathway]))
+
+        # for pathway in range(self.num_pathways):
+        #     m = getattr(self, "pathway{}_avgpool".format(pathway))
+        #     pool_out.append(m(inputs[pathway]))
+
+        if self.no_spatial_pool:
+            for pathway in range(self.num_pathways):
+                pool_out.append(inputs[pathway])
+        else:
+            for pathway in range(self.num_pathways):
+                m = getattr(self, "pathway{}_avgpool".format(pathway))
+                pool_out.append(m(inputs[pathway]))
+
         x = torch.cat(pool_out, 1)
 
-        assert x.shape[-1] == x.shape[-2] == 1
+        # assert x.shape[-1] == x.shape[-2] == 1
 
         if self.debug:
             import pdb; pdb.set_trace()

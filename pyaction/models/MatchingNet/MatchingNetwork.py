@@ -22,7 +22,8 @@ from .DistanceNetwork import CosineDistanceNetwork, EuclideanDistanceNetwork, \
         FrameCosineDistanceSumNetwork, \
         FrameOTAMDistanceNetwork, \
         TemporalGNN, \
-        FrameMeanLearnableDistanceNetwork
+        FrameMeanLearnableDistanceNetwork, \
+        FrameMeanMeanCosineDistanceNetwork
 from .AttentionalClassify import AttentionalClassify
 import torch.nn.functional as F
 from pyaction.utils.freeze import freeze  # Freeze network function
@@ -97,6 +98,8 @@ class MatchingNetwork(nn.Module):
             self.dn = FrameCosineDistanceSumNetwork(nframes=cfg.DATA.NUM_FRAMES)
         elif hasattr(cfg.FEW_SHOT, "DISTANCE") and cfg.FEW_SHOT.DISTANCE == "FRAME_MEAN_COSINE":
             self.dn = FrameMeanCosineDistanceNetwork(nframes=cfg.DATA.NUM_FRAMES)
+        elif hasattr(cfg.FEW_SHOT, "DISTANCE") and cfg.FEW_SHOT.DISTANCE == "FRAME_MEAN_MEAN_COSINE":
+            self.dn = FrameMeanMeanCosineDistanceNetwork(nframes=cfg.DATA.NUM_FRAMES)
         elif hasattr(cfg.FEW_SHOT, "DISTANCE") and cfg.FEW_SHOT.DISTANCE == "FRAME_FRECHETMEAN_COSINE":
             self.dn = FrameFrechetMeanCosineDistanceNetwork(nframes=cfg.DATA.NUM_FRAMES)
         elif hasattr(cfg.FEW_SHOT, "DISTANCE") and cfg.FEW_SHOT.DISTANCE == "FRAME_OTAM":
@@ -118,6 +121,10 @@ class MatchingNetwork(nn.Module):
         if hasattr(self.cfg.FEW_SHOT, "LEARN_TEMP") and cfg.FEW_SHOT.LEARN_TEMP:
             self.temperature = nn.Parameter(torch.tensor([1.0]), requires_grad=True)
 
+        # Relation net
+        if hasattr(self.cfg.FEW_SHOT, "MSELOSS") and self.cfg.FEW_SHOT.MSELOSS:
+            self.mseloss = nn.MSELoss()
+            print("MSE Loss!!!!!!!!!!!!")
 
     def forward(self, support_images, support_labels_one_hot, target_images, target_labels=None):
         """
@@ -197,12 +204,41 @@ class MatchingNetwork(nn.Module):
                 # calculate accuracy and crossentropy loss
                 _, indices = preds.max(1)
 
-                if i == 0:
-                    accuracy = torch.mean((indices == target_labels[:,i]).float())
-                    cross_entropy_loss = F.cross_entropy(preds, target_labels[:,i].long())
+                if hasattr(self.cfg.FEW_SHOT, "MSELOSS") and self.cfg.FEW_SHOT.MSELOSS:
+
+                    preds = F.sigmoid(preds)
+
+                    # target_labels: Add extra dimension for the one_hot
+                    target_labels = torch.unsqueeze(target_labels, -1)  # (bs, ntest, 1)
+                    batch_size = target_labels.shape[0]
+                    n_samples = target_labels.shape[1]
+                    assert target_labels.shape[1] == target_labels.shape[2] == 1
+
+                    target_labels_one_hot = torch.zeros(batch_size, n_samples,
+                                                        self.cfg.FEW_SHOT.CLASSES_PER_SET).cuda()  # the last dim as one-hot
+                    target_labels_one_hot.scatter_(2, target_labels.cuda(), 1.0)
+
+                    if i == 0:
+                        accuracy = torch.mean((indices == target_labels[:, i]).float())
+                        loss = self.mseloss(preds, target_labels_one_hot[:, i])
+                    else:
+                        accuracy += torch.mean((indices == target_labels[:, i]).float())
+                        loss += self.mseloss(preds, target_labels_one_hot[:, i])
                 else:
-                    accuracy += torch.mean((indices == target_labels[:, i]).float())
-                    cross_entropy_loss += F.cross_entropy(preds, target_labels[:, i].long())
+                    if i == 0:
+                        accuracy = torch.mean((indices == target_labels[:, i]).float())
+                        loss = F.cross_entropy(preds, target_labels[:, i].long())
+                    else:
+                        accuracy += torch.mean((indices == target_labels[:, i]).float())
+                        loss += F.cross_entropy(preds, target_labels[:, i].long())
+
+
+                # if i == 0:
+                #     accuracy = torch.mean((indices == target_labels[:,i]).float())
+                #     cross_entropy_loss = F.cross_entropy(preds, target_labels[:,i].long())
+                # else:
+                #     accuracy += torch.mean((indices == target_labels[:, i]).float())
+                #     cross_entropy_loss += F.cross_entropy(preds, target_labels[:, i].long())
 
                 if hasattr(self.cfg, "TEST_DEBUG") and self.cfg.TEST_DEBUG:
                     import pdb; pdb.set_trace()
@@ -213,7 +249,7 @@ class MatchingNetwork(nn.Module):
         if target_labels is None:
             return torch.stack(preds_list)
             
-        return accuracy/n_target, cross_entropy_loss/n_target
+        return accuracy/n_target, loss/n_target
         
 
 if __name__ == '__main__':

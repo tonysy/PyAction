@@ -523,5 +523,51 @@ class FrameMeanLearnableDistanceNetwork(nn.Module):
         assert similarities.shape == (5, bs)
         return similarities
 
+
+class FrameMeanMeanCosineDistanceNetwork(nn.Module):
+    def __init__(self, nframes):
+        super(FrameMeanMeanCosineDistanceNetwork, self).__init__()
+        self.nframes = nframes
+
+    def forward(self, support_vecs, target_vec):
+        """
+        Produces pdfs over the support set classes for the target set image.
+        :param support_vecs: The embeddings of the support set images, tensor of shape [sequence_length, batch_size, dim_feature]
+        :param target_vec: The embedding of the target image, tensor of shape [batch_size, dim_feature]
+        :return: Softmax pdf. Tensor with cosine similarities of shape [batch_size, sequence_length]
+        """
+
+        # single vec size: (N, T * H * W * C)
+
+        # Reshape
+        seqlen, bs, df = support_vecs.shape  # torch.Size([5, bs, 8*7*7*2048])
+        assert df == self.nframes*7*7*2048
+        support_vecs = support_vecs.view(seqlen, bs, 7*7*self.nframes, -1)  # torch.Size([5, bs, 8*7*7, 2048])
+
+        bs, df = target_vec.shape  # torch.Size([bs, 8*7*7*2048])
+        target_vec = target_vec.view(bs, 7*7*self.nframes, -1)  # torch.Size([bs, 8*7*7, 2048])
+
+        # Normalize
+        support_vecs = F.normalize(support_vecs, p=2, dim=-1)
+        target_vec = F.normalize(target_vec, p=2, dim=-1)
+
+        # print(support_vecs.shape, "!!-------!!!!!")
+        # print(target_vec.shape, "!!!!!!!!!!!!!!!!!!!!!!!")
+
+        # Fuse!
+        support_vecs = torch.mean(support_vecs, dim=-2)  # torch.Size([seqlen, bs, 2048])
+        target_vec = torch.mean(target_vec, dim=-2)  # torch.Size([bs, 2048])
+
+        # Dot product
+        similarities = []  # [nsupport * tensor(bs)]
+        for support_vec in support_vecs:
+            # [bs, d]->[bs,1,d] & [bs, d]->[bs,d,1] => [bs, 1, 1].squeeze(1).squeeze(1) => [bs]
+            # print(target_vec.shape, "!!!!!!!!!!!!!!!!!!!!!!!")
+            similarities.append(torch.bmm(support_vec.unsqueeze(1), target_vec.unsqueeze(2)).squeeze(1).squeeze(1))
+
+        similarities = torch.stack(similarities)  # [nsupport, bs]
+        return similarities
+
+
 if __name__ == '__main__':
     unittest.main()
