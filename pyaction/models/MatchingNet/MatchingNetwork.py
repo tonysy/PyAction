@@ -126,7 +126,7 @@ class MatchingNetwork(nn.Module):
             self.mseloss = nn.MSELoss()
             print("MSE Loss!!!!!!!!!!!!")
 
-    def forward(self, support_images, support_labels_one_hot, target_images, target_labels=None):
+    def forward(self, support_images, support_labels_one_hot, target_images, target_labels=None, return_indices=False):
         """
         Builds graph for Matching Networks, produces losses and summary statistics.
         :param support_images: A tensor containing the support set images [batch_size, sequence_size, 3, 8, 224, 224]
@@ -154,6 +154,10 @@ class MatchingNetwork(nn.Module):
 
         if target_labels is None:
             preds_list = []  # return batch of preds
+
+        # For sanity check
+        if return_indices:
+            list_indices = []
 
         # produce embeddings for target images
         for i in np.arange(n_target):
@@ -204,6 +208,10 @@ class MatchingNetwork(nn.Module):
                 # calculate accuracy and crossentropy loss
                 _, indices = preds.max(1)
 
+                # For sanity check
+                if return_indices:
+                    list_indices.append(indices)
+
                 if hasattr(self.cfg.FEW_SHOT, "MSELOSS") and self.cfg.FEW_SHOT.MSELOSS:
 
                     preds = F.sigmoid(preds)
@@ -232,7 +240,6 @@ class MatchingNetwork(nn.Module):
                         accuracy += torch.mean((indices == target_labels[:, i]).float())
                         loss += F.cross_entropy(preds, target_labels[:, i].long())
 
-
                 # if i == 0:
                 #     accuracy = torch.mean((indices == target_labels[:,i]).float())
                 #     cross_entropy_loss = F.cross_entropy(preds, target_labels[:,i].long())
@@ -248,8 +255,13 @@ class MatchingNetwork(nn.Module):
 
         if target_labels is None:
             return torch.stack(preds_list)
-            
-        return accuracy/n_target, loss/n_target
+
+        if return_indices:
+            tensor_indices = torch.stack(list_indices).transpose(-1, -2)
+            assert tensor_indices.shape == target_labels.shape  # bs,ntest
+            return accuracy / n_target, loss / n_target, tensor_indices
+        else:
+            return accuracy/n_target, loss/n_target
         
 
 if __name__ == '__main__':
