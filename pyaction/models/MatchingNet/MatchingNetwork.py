@@ -23,7 +23,8 @@ from .DistanceNetwork import CosineDistanceNetwork, EuclideanDistanceNetwork, \
         FrameOTAMDistanceNetwork, \
         TemporalGNN, \
         FrameMeanLearnableDistanceNetwork, \
-        FrameMeanMeanCosineDistanceNetwork
+        FrameMeanMeanCosineDistanceNetwork, \
+        MHATT_temporal
 from .AttentionalClassify import AttentionalClassify
 import torch.nn.functional as F
 from pyaction.utils.freeze import freeze  # Freeze network function
@@ -80,6 +81,13 @@ class MatchingNetwork(nn.Module):
         if hasattr(self.cfg.FEW_SHOT, "TGNN") and self.cfg.FEW_SHOT.TGNN:
             cos_scaler = cfg.FEW_SHOT.TGNN_COS_SCALER if hasattr(cfg.FEW_SHOT, "TGNN_COS_SCALER") else None
             self.tgnn = TemporalGNN(nframes=cfg.DATA.NUM_FRAMES, cos_scaler=cos_scaler)
+
+        # Multi-head self-attention: Temporal
+        if hasattr(self.cfg, "MHATT_TEMPORAL") and self.cfg.MHATT_TEMPORAL:
+            nhead = cfg.MHATT_TEMPORAL.NHEAD
+            pre_norm = cfg.MHATT_TEMPORAL.PRE_NORM  # True/False
+            self.mhatt_temporal = MHATT_temporal(nframes=cfg.DATA.NUM_FRAMES, nhead=nhead, pre_norm=pre_norm)
+            print("Multi-head Temporal self-attention: pre_norm={} !!!!!!!!!!!".format(pre_norm))
 
         # Distance Network
         if hasattr(cfg.FEW_SHOT, "DISTANCE") and cfg.FEW_SHOT.DISTANCE == "EUCLIDEAN":
@@ -181,6 +189,12 @@ class MatchingNetwork(nn.Module):
                 assert n_target == 1  # should only pass tgnn network one time!
                 for output in outputs:
                     output = self.tgnn(output)
+
+            # Multi-head self-attention: Temporal
+            if hasattr(self.cfg, "MHATT_TEMPORAL") and self.cfg.MHATT_TEMPORAL:
+                assert n_target == 1  # should only pass tgnn network one time!
+                for output in outputs:
+                    output = self.mhatt_temporal(output)
 
             # get similarity between support set embeddings and target
             similarities = self.dn(support_vecs=outputs[:-1], target_vec=outputs[-1])  # [nsupport, batchsize]

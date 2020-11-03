@@ -569,5 +569,66 @@ class FrameMeanMeanCosineDistanceNetwork(nn.Module):
         return similarities
 
 
+class MHATT_temporal(nn.Module):
+    """
+    multi-head self-attention among frame features
+    act on a single video!!
+
+    with simple position encoding!!!
+    """
+
+    def __init__(self, nframes, nhead, pre_norm=None):
+        super(MHATT_temporal, self).__init__()
+        self.nframes = nframes
+        self.nhead = nhead
+        self.pre_norm = True if pre_norm else False  # Default: do not normalize input features
+
+        # self.softmax = nn.Softmax(dim=-1)
+        self.self_attn = nn.MultiheadAttention(2048+8, nhead)
+
+    def forward(self, vec):
+        """
+        Produces pdfs over the support set classes for the target set image.
+        :param support_vecs: The embeddings of the support set images, tensor of shape [sequence_length, batch_size, dim_feature]
+        :param target_vec: The embedding of the target image, tensor of shape [batch_size, dim_feature]
+        :return: Softmax pdf. Tensor with cosine similarities of shape [batch_size, sequence_length]
+        """
+
+        # Get frame features
+        bs, df = vec.shape  # torch.Size([bs, 16384])
+        frames = vec.view(bs, self.nframes, -1)  # torch.Size([bs, 8, 2048])
+
+        # Pre-Normalize
+        if self.pre_norm:
+            frames = F.normalize(frames, p=2, dim=-1)
+
+        # Calc position encoding
+        pos = torch.linspace(-1, 1, steps=self.nframes).repeat(bs,1).unsqueeze(-1).repeat(1,1,8)  # [-1,1] # .repeat(bs, 1)
+        assert pos.shape == (bs, self.nframes, 8)
+
+        # Concat position to the feature
+        frames = torch.cat((frames, pos.cuda()), -1)
+        assert frames.shape == (bs, self.nframes, 2048+8)
+
+        # Transpose for nn.mhatten
+        frames = frames.transpose(0, 1)
+        assert frames.shape == (self.nframes, bs, 2048+8)
+
+        ### TODO: QKV with mlp
+
+        # clone needed?
+        q = frames.clone()
+        k = frames.clone()
+        v = frames
+
+        # self-attention
+        frames = self.self_attn(q, k, value=v)[0].transpose(0, 1).reshape(bs, -1)
+        assert frames.shape == (bs, self.nframes*2056)
+
+        ### TODO: Implementation of Feedforward model: ffn ###
+
+        return frames
+
+
 if __name__ == '__main__':
     unittest.main()
