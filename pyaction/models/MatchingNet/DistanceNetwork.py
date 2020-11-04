@@ -256,9 +256,10 @@ class FrameCosineDistanceSumNetwork(nn.Module):
 
 
 class FrameMeanCosineDistanceNetwork(nn.Module):
-    def __init__(self, nframes):
+    def __init__(self, nframes, norm=None):
         super(FrameMeanCosineDistanceNetwork, self).__init__()
         self.nframes = nframes
+        self.norm = norm if norm is not None else True
 
     def forward(self, support_vecs, target_vec):
         """
@@ -275,9 +276,10 @@ class FrameMeanCosineDistanceNetwork(nn.Module):
         bs, df = target_vec.shape  # torch.Size([bs, 16384])
         target_vec = target_vec.view(bs, self.nframes, -1)  # torch.Size([bs, 8, 2048])
 
-        # Normalize
-        support_vecs = F.normalize(support_vecs, p=2, dim=-1)
-        target_vec = F.normalize(target_vec, p=2, dim=-1)
+        if self.norm:
+            # Normalize
+            support_vecs = F.normalize(support_vecs, p=2, dim=-1)
+            target_vec = F.normalize(target_vec, p=2, dim=-1)
             
         # print(support_vecs.shape, "!!-------!!!!!")
         # print(target_vec.shape, "!!!!!!!!!!!!!!!!!!!!!!!")

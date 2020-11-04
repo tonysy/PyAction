@@ -105,7 +105,11 @@ class MatchingNetwork(nn.Module):
         elif hasattr(cfg.FEW_SHOT, "DISTANCE") and cfg.FEW_SHOT.DISTANCE == "FRAME_COSINE_SUM":
             self.dn = FrameCosineDistanceSumNetwork(nframes=cfg.DATA.NUM_FRAMES)
         elif hasattr(cfg.FEW_SHOT, "DISTANCE") and cfg.FEW_SHOT.DISTANCE == "FRAME_MEAN_COSINE":
-            self.dn = FrameMeanCosineDistanceNetwork(nframes=cfg.DATA.NUM_FRAMES)
+            if hasattr(cfg.FEW_SHOT, "UNNORM_MEAN") and cfg.FEW_SHOT.UNNORM_MEAN:
+                norm = False
+            else:
+                norm = True
+            self.dn = FrameMeanCosineDistanceNetwork(nframes=cfg.DATA.NUM_FRAMES, norm=norm)
         elif hasattr(cfg.FEW_SHOT, "DISTANCE") and cfg.FEW_SHOT.DISTANCE == "FRAME_MEAN_MEAN_COSINE":
             self.dn = FrameMeanMeanCosineDistanceNetwork(nframes=cfg.DATA.NUM_FRAMES)
         elif hasattr(cfg.FEW_SHOT, "DISTANCE") and cfg.FEW_SHOT.DISTANCE == "FRAME_FRECHETMEAN_COSINE":
