@@ -200,6 +200,8 @@ class FrameCosineDistanceMeanNetwork(nn.Module):
         seqlen, bs, df = support_vecs.shape  # torch.Size([5, bs, 16384])
         support_vecs = support_vecs.view(seqlen, bs, self.nframes, -1)  # torch.Size([5, bs, 8, 2048])
 
+        # print(support_vecs.shape, "~~~~~~~")  # (5,bs,8,1000) checked
+
         bs, df = target_vec.shape  # torch.Size([bs, 16384])
         target_vec = target_vec.view(bs, self.nframes, -1)  # torch.Size([bs, 8, 2048])
 

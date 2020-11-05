@@ -63,9 +63,19 @@ class MatchingNetwork(nn.Module):
         update_frame_fuse_method(cfg)  # cfg.FRAME_FUSE := FRAME_MEAN/FRAME_CAT
         self.g = ResNetModel(cfg)
 
-        # Freeze embedding
-        if hasattr(cfg, "FREEZE_RESNET_EXCEPT_NONLOCAL") and cfg.FREEZE_RESNET_EXCEPT_NONLOCAL:
-            freeze(self.g, freeze_bn_stats=cfg.FREEZE_BN_STATS, freeze_nln=False)
+        # The second g
+        if hasattr(cfg.FEW_SHOT, "G2") and cfg.FEW_SHOT.G2:
+            self.has_g2 = True
+            cfg.RESNET.GET_FEATURE=False  ### !!!!!
+            self.g2 = ResNetModel(cfg)
+            for p in self.g2.parameters():  # do not fine-tune it!!!
+                p.requires_grad = False
+        else:
+            self.has_g2 = False
+
+        # # Freeze embedding
+        # if hasattr(cfg, "FREEZE_RESNET_EXCEPT_NONLOCAL") and cfg.FREEZE_RESNET_EXCEPT_NONLOCAL:
+        #     freeze(self.g, freeze_bn_stats=cfg.FREEZE_BN_STATS, freeze_nln=False)
 
         # Full Context Embedding
         if self.fce:
@@ -124,8 +134,18 @@ class MatchingNetwork(nn.Module):
             self.dn = CosineDistanceNetwork()
 
         # Sanity check
-        print(self.dn, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        
+        print("dn:", self.dn, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+
+        # second dn for g2
+        if self.has_g2:
+            assert self.cfg.FEW_SHOT.DISTANCE2 == "FRAME_COSINE_MEAN"
+            self.dn2 = FrameCosineDistanceMeanNetwork(nframes=cfg.DATA.NUM_FRAMES)
+            # Sanity check
+            print("dn2:", self.dn2, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+            # activation for g2 logits
+            if self.cfg.FEW_SHOT.G2_ACT:
+                self.g2_act = nn.Softmax(dim=-1)
+
         # Classifier
         self.classify = AttentionalClassify()
 
@@ -137,6 +157,8 @@ class MatchingNetwork(nn.Module):
         if hasattr(self.cfg.FEW_SHOT, "MSELOSS") and self.cfg.FEW_SHOT.MSELOSS:
             self.mseloss = nn.MSELoss()
             print("MSE Loss!!!!!!!!!!!!")
+
+
 
     def forward(self, support_images, support_labels_one_hot, target_images, target_labels=None, return_indices=False):
         """
@@ -150,10 +172,21 @@ class MatchingNetwork(nn.Module):
         n_target = target_images.size(1)
 
         # produce embeddings for support set images
-        encoded_images = []
+        encoded_images = []  # by g
+        if self.has_g2:
+            encoded_images2 = [] # by g2
+
         for i in np.arange(support_images.size(1)):
-            one_path_wrapped_input = [support_images[:,i,:,:,:,:]]  # for passing stem_helper check
+            if self.g2:
+                one_path_wrapped_input = [support_images[:,i,:,:,:,:].clone()]  # for passing stem_helper check
+            else:
+                one_path_wrapped_input = [support_images[:,i,:,:,:,:]]  # for passing stem_helper check
+
             gen_encode = self.g(one_path_wrapped_input)  # [batchsize, feature_dim]
+            if self.has_g2:
+                one_path_wrapped_input = [support_images[:, i, :, :, :, :]]
+                gen_encode2 = self.g2(one_path_wrapped_input)  # [batchsize, feature_dim]
+                assert gen_encode2.shape == (4, 8000), "{}  {}".format(gen_encode2.shape[0],gen_encode2.shape[1])  ###
 
             ### Reduce Feature vector dim ###
             if hasattr(self.cfg.FEW_SHOT, "LINEAR"):
@@ -163,6 +196,8 @@ class MatchingNetwork(nn.Module):
                 gen_encode = gen_encode.view(bs, -1)
 
             encoded_images.append(gen_encode)
+            if self.has_g2:
+                encoded_images2.append(gen_encode2)
 
         if target_labels is None:
             preds_list = []  # return batch of preds
@@ -173,8 +208,15 @@ class MatchingNetwork(nn.Module):
 
         # produce embeddings for target images
         for i in np.arange(n_target):
-            one_path_wrapped_input = [target_images[:,i,:,:,:,:]]
+            if self.g2:
+                one_path_wrapped_input = [target_images[:,i,:,:,:,:].clone()]
+            else:
+                one_path_wrapped_input = [target_images[:,i,:,:,:,:]]
             gen_encode = self.g(one_path_wrapped_input)
+
+            if self.has_g2:
+                one_path_wrapped_input = [target_images[:,i,:,:,:,:]]
+                gen_encode2 = self.g2(one_path_wrapped_input)
 
             ### Reduce Feature vector dim ###
             if hasattr(self.cfg.FEW_SHOT, "LINEAR"):
@@ -185,6 +227,10 @@ class MatchingNetwork(nn.Module):
 
             encoded_images.append(gen_encode)
             outputs = torch.stack(encoded_images)  # [n_support+1, batchsize, feature_dim]
+
+            if self.has_g2:
+                encoded_images2.append(gen_encode2)
+                outputs2 = torch.stack(encoded_images2)  # [n_support+1, batchsize, feature_dim]
 
             if self.fce:
                 outputs, _, __ = self.lstm(outputs)  # [n_support+1, batchsize, feature_dim]
@@ -203,6 +249,19 @@ class MatchingNetwork(nn.Module):
             # get similarity between support set embeddings and target
             similarities = self.dn(support_vecs=outputs[:-1], target_vec=outputs[-1])  # [nsupport, batchsize]
             similarities = similarities.t()  # [batchsize, nsupport]
+
+            # get the second similarity
+            if self.has_g2:
+                # whether to activate the distribution
+                if self.cfg.FEW_SHOT.G2_ACT:
+                    assert n_target == 1
+                    outputs2 = self.g2_act(outputs2)  # softmax at dim -1
+                # get similarity between support set embeddings and target
+                similarities2 = self.dn2(support_vecs=outputs2[:-1], target_vec=outputs2[-1])  # [nsupport, batchsize]
+                similarities2 = similarities2.t()  # [batchsize, nsupport]
+
+                # weighted sum
+                similarities += similarities2 * self.cfg.FEW_SHOT.G2_ALPHA
 
             # Softmax with temporature
             if hasattr(self.cfg.FEW_SHOT, "TEMP"):

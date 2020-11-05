@@ -384,7 +384,7 @@ def train(cfg):
             last_checkpoint, model, cfg.NUM_GPUS > 1, optimizer
         )
         start_epoch = checkpoint_epoch + 1
-    elif cfg.TRAIN.CHECKPOINT_FILE_PATH != "":
+    elif cfg.TRAIN.CHECKPOINT_FILE_PATH != "":  # for loading pretrain
         logger.info("Load from given checkpoint file.")
         checkpoint_epoch = cu.load_checkpoint(
             cfg.TRAIN.CHECKPOINT_FILE_PATH,
@@ -394,6 +394,24 @@ def train(cfg):
             inflation=cfg.TRAIN.CHECKPOINT_INFLATE,
             convert_from_caffe2=cfg.TRAIN.CHECKPOINT_TYPE == "caffe2",
         )
+        ########
+        has_g2 = False
+        if hasattr(model, "module"):
+            if hasattr(model.module, "g2"):
+                has_g2 = True
+        else:
+            if hasattr(model, "g2"):
+                has_g2 = True
+        if has_g2:
+            cu.load_checkpoint(
+                cfg.TRAIN.CHECKPOINT_FILE_PATH,
+                model.module.g2 if hasattr(model, "module") else model.g2,
+                cfg.NUM_GPUS > 1,
+                optimizer,
+                inflation=cfg.TRAIN.CHECKPOINT_INFLATE,
+                convert_from_caffe2=cfg.TRAIN.CHECKPOINT_TYPE == "caffe2",
+            )
+        #######
         start_epoch = checkpoint_epoch + 1
     else:
         start_epoch = 0

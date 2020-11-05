@@ -184,7 +184,7 @@ class ResNetBasicHead(nn.Module):
         # initialized with a different std comparing to convolutional layers.
 
         if not self.get_feature:
-            self.projection = nn.Linear(sum(dim_in), num_classes, bias=True)
+            self.projection = nn.Linear(sum(dim_in), 1000, bias=True)  #### num_classes
 
         # Softmax for evaluation and testing.
         if act_func == "softmax":
@@ -236,10 +236,12 @@ class ResNetBasicHead(nn.Module):
 
         if not self.get_feature:
             x = self.projection(x)
-            # Performs fully convlutional inference.
-            if not self.training:
-                x = self.act(x)
-                x = x.mean([1, 2, 3])
+
+            # Commented for g2
+            # # Performs fully convlutional inference.
+            # if not self.training:
+            #     x = self.act(x)
+            #     x = x.mean([1, 2, 3])
 
         # if self.debug:
         #     import pdb; pdb.set_trace()

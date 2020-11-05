@@ -579,7 +579,7 @@ class ResNetModel(nn.Module):
             import pdb; pdb.set_trace()
 
         x = self.s1(x)  # torch.Size([bs, 64, 8, 56, 56])
-        
+
         if self.debug:
             import pdb; pdb.set_trace()
         
