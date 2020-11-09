@@ -186,7 +186,10 @@ class MatchingNetwork(nn.Module):
             if self.has_g2:
                 one_path_wrapped_input = [support_images[:, i, :, :, :, :]]
                 gen_encode2 = self.g2(one_path_wrapped_input)  # [batchsize, feature_dim]
-                assert gen_encode2.shape == (4, 8000), "{}  {}".format(gen_encode2.shape[0],gen_encode2.shape[1])  ###
+                # assert gen_encode2.shape == (4, 8000), "{}  {}".format(gen_encode2.shape[0],gen_encode2.shape[1])  ###
+                # will raise err at the end because num of data not divisible by 4 !!!!!!!!!!!!!!!!!!!!!!
+                # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
             ### Reduce Feature vector dim ###
             if hasattr(self.cfg.FEW_SHOT, "LINEAR"):
