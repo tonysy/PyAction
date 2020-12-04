@@ -177,7 +177,7 @@ class MatchingNetwork(nn.Module):
             encoded_images2 = [] # by g2
 
         for i in np.arange(support_images.size(1)):
-            if self.g2:
+            if self.has_g2:
                 one_path_wrapped_input = [support_images[:,i,:,:,:,:].clone()]  # for passing stem_helper check
             else:
                 one_path_wrapped_input = [support_images[:,i,:,:,:,:]]  # for passing stem_helper check
@@ -211,7 +211,7 @@ class MatchingNetwork(nn.Module):
 
         # produce embeddings for target images
         for i in np.arange(n_target):
-            if self.g2:
+            if self.has_g2:
                 one_path_wrapped_input = [target_images[:,i,:,:,:,:].clone()]
             else:
                 one_path_wrapped_input = [target_images[:,i,:,:,:,:]]
