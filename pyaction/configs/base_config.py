@@ -95,6 +95,8 @@ _config_dict = dict(
     MODEL=dict(
         # Model architecture.
         ARCH="slowfast",
+        # Activation layer for the output head.
+        HEAD_ACT="softmax",
         # The number of classes to predict for the model.
         NUM_CLASSES=400,
         # Loss function.

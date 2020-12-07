@@ -127,7 +127,7 @@ def save_checkpoint(path_to_job, model, optimizer, epoch, cfg):
         "epoch": epoch,
         "model_state": sd,
         "optimizer_state": optimizer.state_dict(),
-        "cfg": cfg,  # cfg.dump(),
+        # "cfg": cfg,  # cfg.dump(),
     }
     # Write the checkpoint.
     path_to_checkpoint = get_path_to_checkpoint(path_to_job, epoch + 1)

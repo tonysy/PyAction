@@ -330,10 +330,10 @@ class MetaClsHead(nn.Module):
         # self.metric_layer = cfg.build_meta_metric(cfg)
         self.metric_layer = CosSimMetric(cfg)
         # for few-shot
-        self.n_support_way = cfg.META.N_SUPPORT_WAY
-        self.k_support_shot = cfg.META.K_SUPPORT_SHOT
-        self.n_query_way = cfg.META.N_QUERY_WAY
-        self.k_query_shot = cfg.META.K_QUERY_SHOT
+        self.n_support_way = cfg.META.SETTINGS.N_SUPPORT_WAY
+        self.k_support_shot = cfg.META.SETTINGS.K_SUPPORT_SHOT
+        self.n_query_way = cfg.META.SETTINGS.N_QUERY_WAY
+        self.k_query_shot = cfg.META.SETTINGS.K_QUERY_SHOT
 
 
     def forward(self, inputs, support_labels):

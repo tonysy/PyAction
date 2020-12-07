@@ -20,7 +20,7 @@ from pyaction.datasets import loader
 import pyaction.utils.metrics as metrics
 
 # from pyaction.models import model_builder
-from pyaction.utils.meters import AVAMeter, TestMeter, ValMeter
+from pyaction.utils.meters import AVAMeter, MetaTestMeter
 from net import build_model
 
 import pyaction.utils.multiprocessing as mpu
@@ -265,7 +265,7 @@ def perform_test(test_loader, model, test_meter, cfg):
     # return sum(acc_list)/len(acc_list)
 
 
-def test(cfg):
+def meta_test(cfg):
     """
     Perform multi-view testing on the pretrained video model.
     Args:
@@ -277,8 +277,8 @@ def test(cfg):
     torch.manual_seed(cfg.RNG_SEED)
 
     # Setup logging format.
-    # logger = logging.setup_logging(cfg.OUTPUT_DIR)
-    logger = logging.setup_logging(os.path.join(cfg.OUTPUT_DIR, "test_log.txt"))
+    timestamp = time.strftime("%Y%m%d_%H%M%S", time.localtime())
+    logger = logging.setup_logging(os.path.join(cfg.OUTPUT_DIR, f"test_log_{timestamp}.log"))
 
     # logger = logging.get_logger(__name__)
     logger.info("Running with full config:\n{}".format(cfg))

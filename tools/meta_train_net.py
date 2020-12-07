@@ -8,10 +8,10 @@ import sys
 sys.path.insert(0, ".")
 
 import os
+import time
 import numpy as np
 import torch
-# from fvcore.nn.precise_bn import get_bn_modules, update_bn_stats
-from pyaction.utils.precise_bn_fewshot import get_bn_modules, update_bn_stats
+from fvcore.nn.precise_bn import get_bn_modules, update_bn_stats
 
 from torch.utils.tensorboard import SummaryWriter
 import pyaction.models.losses as losses
@@ -24,9 +24,9 @@ import pyaction.utils.misc as misc
 from pyaction.datasets import loader
 
 # from pyaction.models import model_builder
-from pyaction.utils.meters import AVAMeter, TrainMeter, ValMeter
+from pyaction.utils.meters import AVAMeter, TrainMeter, MetaValMeter
+
 from net import build_model
-from pyaction.utils.freeze_bn import freeze_bn
 
 
 def train_epoch(train_loader, model, optimizer, train_meter, cur_epoch, cfg, writer):
@@ -44,41 +44,26 @@ def train_epoch(train_loader, model, optimizer, train_meter, cur_epoch, cfg, wri
         writer (tensorboard summarywriter): writer to storage the scalars for curve
     """
     # Enable train mode.
-    model.train()
-    
-    # if hasattr(cfg, "NO_TRAIN") and cfg.NO_TRAIN:
-    #     model.eval()
-
-    #!!!!!!!!!!!!!!!!#
-    # FOR DEBUG ONLY #
-    #!!!!!!!!!!!!!!!!#
-    if hasattr(cfg, "FREEZE_BN") and cfg.FREEZE_BN:
-        freeze_bn(model)
-    
+    model.train()    
     train_meter.iter_tic()
     data_size = len(train_loader)
 
-    for cur_iter, (support_x, support_y, target_x, target_y) in enumerate(train_loader):  # data_dict
+    for cur_iter, (
+        support_data, support_meta_label, 
+        query_data, query_meta_label
+        ) in enumerate(
+        train_loader
+    ):
 
-        # tensor size checked.
-        # support_x: (batchsize, classes_per_set * samples_per_class, 3, 8, 224, 224)
-        # support_y: (batchsize, classes_per_set * samples_per_class)
-        # target_x:  (batchsize, samples_per_class, 3, 8, 224, 224)
-        # target_y:  (batchsize, samples_per_class)
-
-        # support_y: Add extra dimension for the one_hot
-        support_y = torch.unsqueeze(support_y, 2)  # (batchsize, classes_per_set * samples_per_class, 1)
-        batch_size = support_y.size()[0]
-        n_samples = support_y.size()[1]
-        support_y_one_hot = torch.zeros(batch_size, n_samples, cfg.FEW_SHOT.CLASSES_PER_SET)  # the last dim as one-hot
-        support_y_one_hot.scatter_(2, support_y, 1.0)
+        # (batchsize, classes_per_set * samples_per_class) 
+        batch_size, n_samples = support_meta_label.shape
 
         # Transfer the data to the current GPU device.
-        support_x = support_x.cuda(non_blocking=True)
-        support_y = support_y.cuda(non_blocking=True)
-        support_y_one_hot = support_y_one_hot.cuda(non_blocking=True)
-        target_x = target_x.cuda(non_blocking=True)
-        target_y = target_y.cuda(non_blocking=True)
+        support_data = support_data.cuda(non_blocking=True)
+        support_meta_label = support_meta_label.cuda(non_blocking=True)
+
+        query_data = query_data.cuda(non_blocking=True)
+        query_meta_label = query_meta_label.cuda(non_blocking=True)
         
         # Record data time
         train_meter.iter_data_toc()
@@ -90,15 +75,10 @@ def train_epoch(train_loader, model, optimizer, train_meter, cur_epoch, cfg, wri
         if cfg.DETECTION.ENABLE:
             # Compute the predictions.
             # preds = model(inputs, meta["boxes"])
-            pass
+            raise NotImplementedError
         else:
             # Perform the forward pass.
-            # import pdb; pdb.set_trace()
-
-            # acc, loss = model(support_x, support_y_one_hot, target_x, target_y)
-            preds = model([support_x, target_x], support_y)
-
-        # import pdb; pdb.set_trace()
+            preds = model([support_data, query_data], support_meta_label)
 
         # Record network forward time
         train_meter.iter_forward_toc()
@@ -107,7 +87,7 @@ def train_epoch(train_loader, model, optimizer, train_meter, cur_epoch, cfg, wri
         loss_fun = losses.get_loss_func(cfg.MODEL.LOSS_FUNC)(reduction="mean")
 
         # # Compute the loss.
-        loss = loss_fun(preds, target_y.view(-1))
+        loss = loss_fun(preds, query_meta_label.view(-1))
 
         # check Nan Loss.
         misc.check_nan_losses(loss)
@@ -115,29 +95,21 @@ def train_epoch(train_loader, model, optimizer, train_meter, cur_epoch, cfg, wri
         # Record loss computation time
         train_meter.iter_loss_toc()
 
-        if hasattr(cfg, "NO_TRAIN") and cfg.NO_TRAIN:
-            pass
-        else:
-            # Perform the backward pass.
-            optimizer.zero_grad()
-            loss.backward()
-            # Update the parameters.
-            optimizer.step()
+        # Perform the backward pass.
+        optimizer.zero_grad()
+        loss.backward()
+        # Update the parameters.
+        optimizer.step()
             
         # Record network backward time
         train_meter.iter_backward_toc()
 
         if cfg.DETECTION.ENABLE:
-            # if cfg.NUM_GPUS > 1:
-            #     loss = du.all_reduce([loss])[0]
-            # loss = loss.item()
-
-            # train_meter.iter_toc()
-            # # Update and log stats.
-            # train_meter.update_stats(None, None, None, loss, lr)
-            pass
+            raise NotImplementedError
         else:
-            num_topks_correct = metrics.topks_correct(preds, target_y.view(-1), (1, 5))
+            num_topks_correct = metrics.topks_correct(
+                preds, query_meta_label.view(-1), (1, 5)
+            )
             top1_err, top5_err = [
                 (1.0 - x / preds.size(0)) * 100.0 for x in num_topks_correct
             ]
@@ -156,47 +128,14 @@ def train_epoch(train_loader, model, optimizer, train_meter, cur_epoch, cfg, wri
             train_meter.iter_toc()
             # Update and log stats.
             train_meter.update_stats(
-                top1_err, top5_err, loss, lr, support_x.size(0) * cfg.NUM_GPUS
+                top1_err, top5_err, loss, lr, support_data.size(0) * cfg.NUM_GPUS
             )
 
-            # # Gather all the predictions across all the devices.
-            # if cfg.NUM_GPUS > 1:
-            #     loss, acc = du.all_reduce([loss, acc])
-
-            # # print("after reduce: {}".format(acc))
-            # # it works like, e.g.
-            # # before reduce: 1.0
-            # # before reduce: 0.0
-            # # before reduce: 0.0
-            # # before reduce: 0.0
-            # # after reduce: 0.25
-            # # after reduce: 0.25
-            # # after reduce: 0.25
-            # # after reduce: 0.25
-
-            # # Copy the stats from GPU to CPU (sync point).
-            # loss, acc = (
-            #     loss.item(),
-            #     acc.item(),
-            # )
-
-            # train_meter.iter_toc()
-            # # Update and log stats.
-            # train_meter.update_stats(
-            #     1.0-acc, .0, loss, lr, support_x.size(0) * cfg.NUM_GPUS
-            # )
         train_meter.log_iter_stats(cur_epoch, cur_iter, writer)
         train_meter.iter_tic()
-    
-    if hasattr(cfg, "EXT_LOG") and cfg.EXT_LOG:
-        from ext_log import get_ext_items  # function
 
     # Log epoch stats.
-    if hasattr(cfg, "EXT_LOG") and cfg.EXT_LOG:
-        ext_items = get_ext_items(model)
-    else:
-        ext_items = None
-    train_meter.log_epoch_stats(cur_epoch, writer, ext_items=ext_items)
+    train_meter.log_epoch_stats(cur_epoch, writer, ext_items=None)
     train_meter.reset()
 
 
@@ -218,58 +157,34 @@ def eval_epoch(val_loader, model, val_meter, cur_epoch, cfg, writer):
     model.eval()
     val_meter.iter_tic()
 
-    for cur_iter, (support_x, support_y, target_x, target_y) in enumerate(val_loader):
-        
-        # support_y: Add extra dimension for the one_hot
-        support_y = torch.unsqueeze(support_y, 2)  # (batchsize, classes_per_set * samples_per_class, 1)
-        batch_size = support_y.size()[0]
-        n_samples = support_y.size()[1]
-        support_y_one_hot = torch.zeros(batch_size, n_samples, cfg.FEW_SHOT.CLASSES_PER_SET)  # the last dim as one-hot
-        support_y_one_hot.scatter_(2, support_y, 1.0)
+    for cur_iter, (
+        support_data, support_meta_label, 
+        query_data, query_meta_label
+        ) in enumerate(
+        val_loader
+    ):    
+        # (batchsize, classes_per_set * samples_per_class) 
+        batch_size, n_samples = support_meta_label.shape
 
         # Transfer the data to the current GPU device.
-        support_x = support_x.cuda(non_blocking=True)
-        support_y = support_y.cuda(non_blocking=True)
-        support_y_one_hot = support_y_one_hot.cuda(non_blocking=True)
-        target_x = target_x.cuda(non_blocking=True)
-        target_y = target_y.cuda(non_blocking=True)
+        support_data = support_data.cuda(non_blocking=True)
+        support_meta_label = support_meta_label.cuda(non_blocking=True)
 
-        # # Transfer the data to the current GPU device.
-        # if isinstance(inputs, (list,)):
-        #     for i in range(len(inputs)):
-        #         inputs[i] = inputs[i].cuda(non_blocking=True)
-        # else:
-        #     inputs = inputs.cuda(non_blocking=True)
-        # labels = labels.cuda()
-        # for key, val in meta.items():
-        #     if isinstance(val, (list,)):
-        #         for i in range(len(val)):
-        #             val[i] = val[i].cuda(non_blocking=True)
-        #     else:
-        #         meta[key] = val.cuda(non_blocking=True)
+        query_data = query_data.cuda(non_blocking=True)
+        query_meta_label = query_meta_label.cuda(non_blocking=True)
+        
+        # Record data time
+        # val_meter.iter_data_toc()
 
         if cfg.DETECTION.ENABLE:
-            # # Compute the predictions.
-            # preds = model(inputs, meta["boxes"])
-
-            # preds = preds.cpu()
-            # ori_boxes = meta["ori_boxes"].cpu()
-            # metadata = meta["metadata"].cpu()
-
-            # if cfg.NUM_GPUS > 1:
-            #     preds = torch.cat(du.all_gather_unaligned(preds), dim=0)
-            #     ori_boxes = torch.cat(du.all_gather_unaligned(ori_boxes), dim=0)
-            #     metadata = torch.cat(du.all_gather_unaligned(metadata), dim=0)
-
-            # val_meter.iter_toc()
-            # # Update and log stats.
-            # val_meter.update_stats(preds.cpu(), ori_boxes.cpu(), metadata.cpu())
-            pass
+            raise NotImplementedError
         else:
             # preds = model(inputs)
-            preds = model([support_x, target_x], support_y)
+            preds = model([support_data, query_data], support_meta_label)
 
-            num_topks_correct = metrics.topks_correct(preds, target_y.view(-1), (1, 5))
+            num_topks_correct = metrics.topks_correct(
+                preds, query_meta_label.view(-1), (1, 5)
+            )
             top1_err, top5_err = [
                 (1.0 - x / preds.size(0)) * 100.0 for x in num_topks_correct
             ]
@@ -283,12 +198,13 @@ def eval_epoch(val_loader, model, val_meter, cur_epoch, cfg, writer):
             val_meter.iter_toc()
 
             # Update and log stats.
-            val_meter.update_stats(top1_err, top5_err, support_x.size(0) * cfg.NUM_GPUS)
+            val_meter.update_stats(top1_err, top5_err, support_data.size(0) * cfg.NUM_GPUS)
 
         if cfg.DETECTION.ENABLE:
             val_meter.log_iter_stats(cur_epoch, cur_iter, writer)
         else:
             val_meter.log_iter_stats(cur_epoch, cur_iter)
+
         val_meter.iter_tic()
 
     # Log epoch stats.
@@ -307,24 +223,26 @@ def calculate_and_update_precise_bn(loader, model, cfg, num_iters=200):
 
     num_classes = cfg.FEW_SHOT.CLASSES_PER_SET
     def _gen_loader():
-        for support_x, support_y, target_x, _ in loader:
+        # TODO: re-format this function
+        pass
+        # for support_x, support_y, target_x, _ in loader:
 
-            support_y = torch.unsqueeze(support_y, 2)  # (batchsize, classes_per_set * samples_per_class, 1)
-            batch_size = support_y.size()[0]
-            n_samples = support_y.size()[1]
-            support_y_one_hot = torch.zeros(batch_size, n_samples, num_classes)  # the last dim as one-hot
-            support_y_one_hot.scatter_(2, support_y, 1.0)
+        #     support_y = torch.unsqueeze(support_y, 2)  # (batchsize, classes_per_set * samples_per_class, 1)
+        #     batch_size = support_y.size()[0]
+        #     n_samples = support_y.size()[1]
+        #     support_y_one_hot = torch.zeros(batch_size, n_samples, num_classes)  # the last dim as one-hot
+        #     support_y_one_hot.scatter_(2, support_y, 1.0)
 
-            support_x = support_x.cuda(non_blocking=True)
-            support_y_one_hot = support_y_one_hot.cuda(non_blocking=True)
-            target_x = target_x.cuda(non_blocking=True)
-            yield support_x, support_y_one_hot, target_x
+        #     support_x = support_x.cuda(non_blocking=True)
+        #     support_y_one_hot = support_y_one_hot.cuda(non_blocking=True)
+        #     target_x = target_x.cuda(non_blocking=True)
+        #     yield support_x, support_y_one_hot, target_x
 
     # Update the bn stats.
     update_bn_stats(model, _gen_loader(), num_iters)
 
 
-def train(cfg):
+def meta_train(cfg):
     """
     Train a video model for many epochs on train set and evaluate it on val set.
     Args:
@@ -337,7 +255,9 @@ def train(cfg):
     torch.manual_seed(cfg.RNG_SEED)
 
     # Setup logging format.
-    logger = logging.setup_logging(os.path.join(cfg.OUTPUT_DIR, "train_log.txt"))
+
+    timestamp = time.strftime("%Y%m%d_%H%M%S", time.localtime())
+    logger = logging.setup_logging(os.path.join(cfg.OUTPUT_DIR, f"train_log_{timestamp}.log"))
 
     logger.info("Running with full config:\n{}".format(cfg))
     base_config = cfg.__class__.__base__()
@@ -345,25 +265,17 @@ def train(cfg):
         "different config with base class:\n{}".format(cfg.show_diff(base_config))
     )
 
-    # logger = logging.get_logger(name='pyaction')
-    # logger = logging.get_logger(__name__)
-
-    # Print config.
-    # logger.info("Train with config:")
-    # logger.info(pprint.pformat(cfg))
-
     # Build the video model and print model statistics.
-    # model = model_builder.build_model(cfg)
     model = build_model(cfg)
     if du.is_master_proc():
-        # print(type(model))
-        if cfg.NUM_GPUS > 1:
-            model_plain = model.module
-        else:
-            model_plain = model
+        # TODO: add support for model information measurement
+        # if cfg.NUM_GPUS > 1:
+        #     model_plain = model.module
+        # else:
+        #     model_plain = model
         writer = SummaryWriter(cfg.OUTPUT_DIR)  # , **kwargs)
 
-        misc.log_model_info(model_plain, cfg, is_train=True, writer=writer)
+        # misc.log_model_info(model_plain, cfg, is_train=True, writer=writer)
     else:
         writer = None
 
@@ -389,24 +301,7 @@ def train(cfg):
             inflation=cfg.TRAIN.CHECKPOINT_INFLATE,
             convert_from_caffe2=cfg.TRAIN.CHECKPOINT_TYPE == "caffe2",
         )
-        ########
-        has_g2 = False
-        if hasattr(model, "module"):
-            if hasattr(model.module, "g2"):
-                has_g2 = True
-        else:
-            if hasattr(model, "g2"):
-                has_g2 = True
-        if has_g2:
-            cu.load_checkpoint(
-                cfg.TRAIN.CHECKPOINT_FILE_PATH,
-                model.module.g2 if hasattr(model, "module") else model.g2,
-                cfg.NUM_GPUS > 1,
-                optimizer,
-                inflation=cfg.TRAIN.CHECKPOINT_INFLATE,
-                convert_from_caffe2=cfg.TRAIN.CHECKPOINT_TYPE == "caffe2",
-            )
-        #######
+
         start_epoch = checkpoint_epoch + 1
     else:
         start_epoch = 0
@@ -421,7 +316,7 @@ def train(cfg):
         val_meter = AVAMeter(len(val_loader), cfg, mode="val")
     else:
         train_meter = TrainMeter(len(train_loader), cfg)
-        val_meter = ValMeter(len(val_loader), cfg)
+        val_meter = MetaValMeter(len(val_loader), cfg)
 
     # Perform the training loop.
     logger.info("Start epoch: {}".format(start_epoch + 1))
@@ -431,25 +326,18 @@ def train(cfg):
         # Shuffle the dataset.
         loader.shuffle_dataset(train_loader, cur_epoch)
 
+        if cur_epoch == 0:
+            eval_epoch(val_loader, model, val_meter, cur_epoch, cfg, writer)
+
         # Train for one epoch.
         # BN will not update if cfg.FREEZE_BN is True
-        # eval_epoch(val_loader, model, val_meter, cur_epoch, cfg, writer)
-        eval_epoch(val_loader, model, val_meter, cur_epoch, cfg, writer)
         train_epoch(train_loader, model, optimizer, train_meter, cur_epoch, cfg, writer)
 
-        # No need but, ...
-        #!!!!!!!!!!!!!!!!#
-        # FOR DEBUG ONLY #
-        #!!!!!!!!!!!!!!!!#
-        if hasattr(cfg, "FREEZE_BN") and cfg.FREEZE_BN:
-            pass
-        else:
-            # Compute precise BN stats.
-            if cfg.BN.USE_PRECISE_STATS and len(get_bn_modules(model)) > 0:
-                calculate_and_update_precise_bn(
-                    # len(train_loader) == len(dataset)//ngpus
-                    train_loader, model, cfg, len(train_loader)//5  #cfg.BN.NUM_BATCHES_PRECISE
-                )
+        # Compute precise BN stats.
+        if cfg.BN.USE_PRECISE_STATS and len(get_bn_modules(model)) > 0:
+            calculate_and_update_precise_bn(
+                train_loader, model, cfg, cfg.BN.NUM_BATCHES_PRECISE
+            )
 
         # Save a checkpoint.
         if cu.is_checkpoint_epoch(cur_epoch, cfg.TRAIN.CHECKPOINT_PERIOD):

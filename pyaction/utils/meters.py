@@ -792,3 +792,238 @@ class ValMeter(object):
             writer.add_scalar("Epoch/val_top1_err", stats["top1_err"], cur_epoch)
             writer.add_scalar("Epoch/val_top5_err", stats["top5_err"], cur_epoch)
 
+
+
+class MetaValMeter(object):
+    """
+    Measures validation stats for meta learnign setting.
+    """
+
+    def __init__(self, max_iter, cfg):
+        """
+        Args:
+            max_iter (int): the max number of iteration of the current epoch.
+            cfg (CfgNode): configs.
+        """
+        self._cfg = cfg
+        self.max_iter = max_iter
+        self.iter_timer = Timer()
+        # Current minibatch errors (smoothed over a window).
+        self.mb_top1_err = ScalarMeter(cfg.LOG_PERIOD)
+        # self.mb_top5_err = ScalarMeter(cfg.LOG_PERIOD)
+        # Min errors (over the full val set).
+        self.min_top1_err = 100.0
+        # self.min_top5_err = 100.0
+        # Number of misclassified examples.
+        self.num_top1_mis = 0
+        # self.num_top5_mis = 0
+        self.num_samples = 0
+
+    def reset(self):
+        """
+        Reset the Meter.
+        """
+        self.iter_timer.reset()
+        self.mb_top1_err.reset()
+        # self.mb_top5_err.reset()
+        self.num_top1_mis = 0
+        # self.num_top5_mis = 0
+        self.num_samples = 0
+
+    def iter_tic(self):
+        """
+        Start to record time.
+        """
+        self.iter_timer.reset()
+
+    def iter_toc(self):
+        """
+        Stop to record time.
+        """
+        self.iter_timer.pause()
+
+    def update_stats(self, top1_err, top5_err, mb_size):
+        """
+        Update the current stats.
+        Args:
+            top1_err (float): top1 error rate.
+            top5_err (float): top5 error rate.
+            mb_size (int): mini batch size.
+        """
+        self.mb_top1_err.add_value(top1_err)
+        # self.mb_top5_err.add_value(top5_err)
+        self.num_top1_mis += top1_err * mb_size
+        # self.num_top5_mis += top5_err * mb_size
+        self.num_samples += mb_size
+
+    def log_iter_stats(self, cur_epoch, cur_iter):
+        """
+        log the stats of the current iteration.
+        Args:
+            cur_epoch (int): the number of current epoch.
+            cur_iter (int): the number of current iteration.
+        """
+        if (cur_iter + 1) % self._cfg.LOG_PERIOD != 0:
+            return
+        eta_sec = self.iter_timer.seconds() * (self.max_iter - cur_iter - 1)
+        eta = str(datetime.timedelta(seconds=int(eta_sec)))
+        mem_usage = misc.gpu_mem_usage()
+        stats = {
+            "_type": "val_iter",
+            "epoch": "{}/{}".format(cur_epoch + 1, self._cfg.SOLVER.MAX_EPOCH),
+            "iter": "{}/{}".format(cur_iter + 1, self.max_iter),
+            "time_diff": self.iter_timer.seconds(),
+            "eta": eta,
+            "curr_top1_err": self.mb_top1_err.get_win_median(),
+            "overall_top1_err": self.num_top1_mis / self.num_samples,
+            # "top5_err": self.mb_top5_err.get_win_median(),
+            "mem": int(np.ceil(mem_usage)),
+        }
+        logging.log_json_stats(stats)
+
+    def log_epoch_stats(self, cur_epoch, writer):
+        """
+        Log the stats of the current epoch.
+        Args:
+            cur_epoch (int): the number of current epoch.
+            writer (tensorboard summarywriter): writer to storage the scalars for curve
+        """
+        top1_err = self.num_top1_mis / self.num_samples
+        # top5_err = self.num_top5_mis / self.num_samples
+        self.min_top1_err = min(self.min_top1_err, top1_err)
+        # self.min_top5_err = min(self.min_top5_err, top5_err)
+        mem_usage = misc.gpu_mem_usage()
+        stats = {
+            "_type": "val_epoch",
+            "epoch": "{}/{}".format(cur_epoch + 1, self._cfg.SOLVER.MAX_EPOCH),
+            "time_diff": self.iter_timer.seconds(),
+            "top1_err": top1_err,
+            "top1_acc": 100.0 - top1_err,
+            # "top5_err": top5_err,
+            "min_top1_err": self.min_top1_err,
+            # "min_top5_err": self.min_top5_err,
+            "mem": int(np.ceil(mem_usage)),
+        }
+        logging.log_json_stats(stats)
+        if du.is_master_proc() and writer is not None:
+            writer.add_scalar("Epoch/val_top1_err", stats["top1_err"], cur_epoch)
+            # writer.add_scalar("Epoch/val_top5_err", stats["top5_err"], cur_epoch)
+
+
+
+
+class MetaTestMeter(object):
+    """
+    Measures validation stats for meta learnign setting.
+    """
+
+    def __init__(self, max_iter, cfg):
+        """
+        Args:
+            max_iter (int): the max number of iteration of the current epoch.
+            cfg (CfgNode): configs.
+        """
+        self._cfg = cfg
+        self.max_iter = max_iter
+        self.iter_timer = Timer()
+        # Current minibatch errors (smoothed over a window).
+        self.mb_top1_err = ScalarMeter(cfg.LOG_PERIOD)
+        # self.mb_top5_err = ScalarMeter(cfg.LOG_PERIOD)
+        # Min errors (over the full val set).
+        self.min_top1_err = 100.0
+        # self.min_top5_err = 100.0
+        # Number of misclassified examples.
+        self.num_top1_mis = 0
+        # self.num_top5_mis = 0
+        self.num_samples = 0
+
+    def reset(self):
+        """
+        Reset the Meter.
+        """
+        self.iter_timer.reset()
+        self.mb_top1_err.reset()
+        # self.mb_top5_err.reset()
+        self.num_top1_mis = 0
+        # self.num_top5_mis = 0
+        self.num_samples = 0
+
+    def iter_tic(self):
+        """
+        Start to record time.
+        """
+        self.iter_timer.reset()
+
+    def iter_toc(self):
+        """
+        Stop to record time.
+        """
+        self.iter_timer.pause()
+
+    def update_stats(self, top1_err, top5_err, mb_size):
+        """
+        Update the current stats.
+        Args:
+            top1_err (float): top1 error rate.
+            top5_err (float): top5 error rate.
+            mb_size (int): mini batch size.
+        """
+        self.mb_top1_err.add_value(top1_err)
+        # self.mb_top5_err.add_value(top5_err)
+        self.num_top1_mis += top1_err * mb_size
+        # self.num_top5_mis += top5_err * mb_size
+        self.num_samples += mb_size
+
+    def log_iter_stats(self, cur_epoch, cur_iter):
+        """
+        log the stats of the current iteration.
+        Args:
+            cur_epoch (int): the number of current epoch.
+            cur_iter (int): the number of current iteration.
+        """
+        if (cur_iter + 1) % self._cfg.LOG_PERIOD != 0:
+            return
+        eta_sec = self.iter_timer.seconds() * (self.max_iter - cur_iter - 1)
+        eta = str(datetime.timedelta(seconds=int(eta_sec)))
+        mem_usage = misc.gpu_mem_usage()
+        stats = {
+            "_type": "test_iter",
+            "epoch": "{}/{}".format(cur_epoch + 1, self._cfg.SOLVER.MAX_EPOCH),
+            "iter": "{}/{}".format(cur_iter + 1, self.max_iter),
+            "time_diff": self.iter_timer.seconds(),
+            "eta": eta,
+            "curr_top1_err": self.mb_top1_err.get_win_median(),
+            "overall_top1_err": self.num_top1_mis / self.num_samples,
+            # "top5_err": self.mb_top5_err.get_win_median(),
+            "mem": int(np.ceil(mem_usage)),
+        }
+        logging.log_json_stats(stats)
+
+    def log_epoch_stats(self, cur_epoch, writer):
+        """
+        Log the stats of the current epoch.
+        Args:
+            cur_epoch (int): the number of current epoch.
+            writer (tensorboard summarywriter): writer to storage the scalars for curve
+        """
+        top1_err = self.num_top1_mis / self.num_samples
+        # top5_err = self.num_top5_mis / self.num_samples
+        self.min_top1_err = min(self.min_top1_err, top1_err)
+        # self.min_top5_err = min(self.min_top5_err, top5_err)
+        mem_usage = misc.gpu_mem_usage()
+        stats = {
+            "_type": "test_epoch",
+            "epoch": "{}/{}".format(cur_epoch + 1, self._cfg.SOLVER.MAX_EPOCH),
+            "time_diff": self.iter_timer.seconds(),
+            "top1_err": top1_err,
+            "top1_acc": 100.0 - top1_err,
+            # "top5_err": top5_err,
+            # "min_top1_err": self.min_top1_err,
+            # "min_top5_err": self.min_top5_err,
+            "mem": int(np.ceil(mem_usage)),
+        }
+        logging.log_json_stats(stats)
+        if du.is_master_proc() and writer is not None:
+            writer.add_scalar("Epoch/test_top1_err", stats["top1_err"], cur_epoch)
+            # writer.add_scalar("Epoch/val_top5_err", stats["top5_err"], cur_epoch)
+

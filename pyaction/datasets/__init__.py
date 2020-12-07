@@ -4,6 +4,4 @@
 from .ava_dataset import Ava  # noqa
 from .build import DATASET_REGISTRY, build_dataset  # noqa
 from .kinetics import Kinetics  # noqa
-# from .kineticsnshot import KineticsNShot   not supported by "capitalize" ...
-from .kineticsnshot import Kineticsnshot
-from .kinetics_v2 import Kinetics_v2
+from .minikinetics import Minikinetics  # noqa
