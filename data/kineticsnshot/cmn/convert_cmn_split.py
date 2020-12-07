@@ -33,7 +33,7 @@ for name in ["train", "val", "test"]:
             c = line.split("/")[0]
             l = dict_class_label[c]
             csv_file.writelines(
-                os.path.expanduser("~/Datasets/kinetics-400/raw-part/compress/train_256/{}.mp4 {}\n").format(line, l)
+                os.path.expanduser("/group/syzhang/ActivityNet/kinetics-400/raw-part/compress/train_256/{}.mp4 {}\n").format(line, l)
             )
     
     # verify csv

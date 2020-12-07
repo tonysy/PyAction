@@ -17,9 +17,10 @@ import pyaction.utils.distributed as du
 import pyaction.utils.logging as logging
 import pyaction.utils.misc as misc
 from pyaction.datasets import loader
+import pyaction.utils.metrics as metrics
 
 # from pyaction.models import model_builder
-from pyaction.utils.meters import AVAMeter, TestMeter
+from pyaction.utils.meters import AVAMeter, TestMeter, ValMeter
 from net import build_model
 
 import pyaction.utils.multiprocessing as mpu
@@ -185,7 +186,8 @@ def perform_test(test_loader, model, test_meter, cfg):
 
         # Transfer the data to the current GPU device.
         support_x = support_x.cuda(non_blocking=True)
-        support_y_one_hot = support_y_one_hot.cuda(non_blocking=True)
+        # support_y_one_hot = support_y_one_hot.cuda(non_blocking=True)
+        support_y = support_y.cuda(non_blocking=True)
         target_x = target_x.cuda(non_blocking=True)
         target_y = target_y.cuda(non_blocking=True)
 
@@ -211,23 +213,31 @@ def perform_test(test_loader, model, test_meter, cfg):
             pass
         else:
             # preds = model(inputs)
-            acc, _ = model(support_x, support_y_one_hot, target_x, target_y)
+            preds = model([support_x, target_x], support_y)
+
+            num_topks_correct = metrics.topks_correct(preds, target_y.view(-1), (1, 5))
+            top1_err, top5_err = [
+                (1.0 - x / preds.size(0)) * 100.0 for x in num_topks_correct
+            ]
 
             if cfg.NUM_GPUS > 1:
-                acc = du.all_reduce([acc])
+                top1_err, top5_err = du.all_reduce([top1_err, top5_err])
+            top1_err, top5_err = top1_err.item(), top5_err.item()
+            
+            # # Copy the errors from GPU to CPU (sync point).
+            # if isinstance(acc, list):
+            #     acc = acc[0].item()
+            # else:
+            #     acc = acc.item()
 
-            # Copy the errors from GPU to CPU (sync point).
-            if isinstance(acc, list):
-                acc = acc[0].item()
-            else:
-                acc = acc.item()
+            # # print(acc)
 
-            # print(acc)
-
-            # debug
-            acc_list.append(acc)
+            # # debug
+            # acc_list.append(acc)
 
             test_meter.iter_toc()
+            test_meter.update_stats(top1_err, top5_err, support_x.size(0) * cfg.NUM_GPUS)
+            test_meter.log_iter_stats(-1, cur_iter)
 
             # # Gather all the predictions across all the devices to perform ensemble.
             # if cfg.NUM_GPUS > 1:
@@ -240,8 +250,9 @@ def perform_test(test_loader, model, test_meter, cfg):
             # )
             # test_meter.log_iter_stats(cur_iter)
 
-        test_meter.iter_tic()
 
+        test_meter.iter_tic()
+    test_meter.log_epoch_stats(-1, writer=None)
     # Log epoch stats and print the final testing results.
     # if cfg.DETECTION.ENABLE:
     #     test_meter.finalize_metrics()
@@ -251,7 +262,7 @@ def perform_test(test_loader, model, test_meter, cfg):
     test_meter.reset()
 
     # debug
-    return sum(acc_list)/len(acc_list)
+    # return sum(acc_list)/len(acc_list)
 
 
 def test(cfg):
@@ -361,7 +372,8 @@ def test_model(cfg, is_master):
         logger.info("Loading from given file {}...".format(cfg.TEST.CHECKPOINT_FILE_PATH))
         cu.load_checkpoint(
             cfg.TEST.CHECKPOINT_FILE_PATH,
-            model.module.g if hasattr(model, "module") else model.g,
+            # model.module.g if hasattr(model, "module") else model.g,
+            model,
             cfg.NUM_GPUS > 1,
             None,
             inflation=True,
@@ -426,48 +438,45 @@ def test_model(cfg, is_master):
         assert (len(test_loader.dataset) % (num_clips) == 0)
         
         # Create meters for multi-view testing.
-        test_meter = TestMeter(
-            len(test_loader.dataset) // num_clips,
-            num_clips,
-            cfg.MODEL.NUM_CLASSES,
-            len(test_loader),
-        )
+        test_meter = ValMeter(len(test_loader), cfg)
 
-    # # Perform multi-view test on the entire dataset.
-    n_test = cfg.TEST.NTEST if hasattr(cfg.TEST, "NTEST") else 1000
-    results = []
-    split_name = cfg.TEST.CUR_SPLIT
+    perform_test(test_loader, model, test_meter, cfg)
 
-    for i in range(n_test):
-        assert len(results) == i
-        results.append(perform_test(test_loader, model, test_meter, cfg))
-        if is_master:
-            m0 = "-------------------epoch {}/{}:------------------------".format(i, n_test)
-            output_messages = [
-                m0,
-                "                   split: {}".format(split_name+".csv"),
-                "               rand seed: {}".format(cfg.RNG_SEED),
-                "               eval mode: {}".format(eval_mode),
-                "         model evaluated: {}".format(model_name),
-                "           cur epoch acc: {}".format(results[-1]),
-                "   cur max, min, maxdiff: {}, {}, {}".format(max(results), min(results), max(results)-min(results)),
-                "             cur avg acc: {}".format(sum(results)/len(results)),
-                "-" * len(m0),
-            ]
-            for m in output_messages:
-                # print(m)
-                logger.info(m)
+    # # # Perform multi-view test on the entire dataset.
+    # n_test = cfg.TEST.NTEST if hasattr(cfg.TEST, "NTEST") else 1000
+    # results = []
+    # split_name = cfg.TEST.CUR_SPLIT
 
-            # l0 = "-------------------epoch {}/{}:------------------------".format(i, n_test)
-            # print(l0)
-            # print("                   split: {}".format(split_name+".csv"))
-            # print("               rand seed: {}".format(cfg.RNG_SEED))
-            # print("               eval mode: {}".format(eval_mode))
-            # print("         model evaluated: {}".format(model_name))
-            # print("           cur epoch acc: {}".format(results[-1]))
-            # print("   cur max, min, maxdiff: {}, {}, {}".format(max(results), min(results), max(results)-min(results)))
-            # print("             cur avg acc: {}".format(sum(results)/len(results)))
-            # print("-" * len(l0))
+    # for i in range(n_test):
+    #     assert len(results) == i
+    #     results.append(perform_test(test_loader, model, test_meter, cfg))
+    #     if is_master:
+    #         m0 = "-------------------epoch {}/{}:------------------------".format(i, n_test)
+    #         output_messages = [
+    #             m0,
+    #             "                   split: {}".format(split_name+".csv"),
+    #             "               rand seed: {}".format(cfg.RNG_SEED),
+    #             "               eval mode: {}".format(eval_mode),
+    #             "         model evaluated: {}".format(model_name),
+    #             "           cur epoch acc: {}".format(results[-1]),
+    #             "   cur max, min, maxdiff: {}, {}, {}".format(max(results), min(results), max(results)-min(results)),
+    #             "             cur avg acc: {}".format(sum(results)/len(results)),
+    #             "-" * len(m0),
+    #         ]
+    #         for m in output_messages:
+    #             # print(m)
+    #             logger.info(m)
+
+    #         # l0 = "-------------------epoch {}/{}:------------------------".format(i, n_test)
+    #         # print(l0)
+    #         # print("                   split: {}".format(split_name+".csv"))
+    #         # print("               rand seed: {}".format(cfg.RNG_SEED))
+    #         # print("               eval mode: {}".format(eval_mode))
+    #         # print("         model evaluated: {}".format(model_name))
+    #         # print("           cur epoch acc: {}".format(results[-1]))
+    #         # print("   cur max, min, maxdiff: {}, {}, {}".format(max(results), min(results), max(results)-min(results)))
+    #         # print("             cur avg acc: {}".format(sum(results)/len(results)))
+    #         # print("-" * len(l0))
 
 def main():
     """

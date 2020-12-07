@@ -16,7 +16,9 @@ import pyaction.utils.multiprocessing as mpu
 from config import config
 from test_net import test
 
-if hasattr(config, "FEW_SHOT"):
+if config.META.ENABLE:
+    from meta_train_net import train
+elif hasattr(config, "FEW_SHOT"):
     from train_net_fewshot import train
 else:
     from train_net import train

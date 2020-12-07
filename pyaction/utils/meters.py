@@ -788,7 +788,7 @@ class ValMeter(object):
             "mem": int(np.ceil(mem_usage)),
         }
         logging.log_json_stats(stats)
-        if du.is_master_proc():
+        if du.is_master_proc() and writer is not None:
             writer.add_scalar("Epoch/val_top1_err", stats["top1_err"], cur_epoch)
             writer.add_scalar("Epoch/val_top5_err", stats["top5_err"], cur_epoch)
 
