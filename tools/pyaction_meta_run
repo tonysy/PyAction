@@ -1,4 +1,0 @@
-#!/bin/bash
-
-export OMP_NUM_THREADS=1
-python3 /data/projects/PyActionStable/tools/meta_run_net.py $@

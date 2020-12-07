@@ -23,6 +23,8 @@ __pycache__/
 
 model_zoo/
 pyaction_run
+pyaction_test
+pyaction_meta_run
 pyaction_run_queue
 
 # C extensions
