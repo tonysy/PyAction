@@ -65,7 +65,6 @@ def get_last_checkpoint(path_to_job):
     # Sort the checkpoints by epoch.
     name = sorted(names)[-1]
     cpath = os.path.join(d, name)
-    print("Loading from {}..".format(cpath))
     return cpath
 
 
@@ -77,11 +76,16 @@ def get_checkpoint(path_to_job, epoch_id):
     """
     d = get_checkpoint_dir(path_to_job)
     names = os.listdir(d) if os.path.exists(d) else []
-    names = [f for f in names if f.startswith("check") and f.endswith("{}.pyth".format(str(epoch_id).rjust(5, '0')))]
-    print(names)
-    assert len(names) == 1, "No checkpoint found or found multiple checkpoints, please check."
+    names = [
+        f
+        for f in names
+        if f.startswith("check")
+        and f.endswith("{}.pyth".format(str(epoch_id).rjust(5, "0")))
+    ]
+    assert (
+        len(names) == 1
+    ), "No checkpoint found or found multiple checkpoints, please check."
     cpath = os.path.join(d, names[0])
-    print("Loading from {}..".format(cpath))
     return cpath
 
 
@@ -150,11 +154,13 @@ def inflate_weight(state_dict_2d, state_dict_3d):
     state_dict_inflated = OrderedDict()
 
     for k, v2d in state_dict_2d.items():
-        if not k in state_dict_3d:
+        if k not in state_dict_3d:
             print(k, "!!!!!!!!!!!")
 
     for k, v2d in state_dict_2d.items():
-        if k.startswith("head.projection") and k not in state_dict_3d.keys():  # few-shot
+        if (
+            k.startswith("head.projection") and k not in state_dict_3d.keys()
+        ):  # few-shot
             continue
         assert k in state_dict_3d.keys()
         v3d = state_dict_3d[k]
@@ -178,7 +184,7 @@ def load_checkpoint(
     optimizer=None,
     inflation=False,
     convert_from_caffe2=False,
-    strict=True, ################# false for loading from classifier
+    strict=True,
 ):
     """
     Load the checkpoint from the given file. If inflation is True, inflate the
@@ -246,14 +252,16 @@ def load_checkpoint(
             # Try to inflate the model.
             model_state_dict_3d = (
                 # model.module.state_dict() if data_parallel else model.state_dict()
-                model.module.state_dict() if hasattr(model, "module") else model.state_dict()
+                model.module.state_dict()
+                if hasattr(model, "module")
+                else model.state_dict()
             )
             inflated_model_dict = inflate_weight(
                 checkpoint["model_state"], model_state_dict_3d
             )
             ms.load_state_dict(inflated_model_dict, strict=False)
         else:
-            ms.load_state_dict(checkpoint["model_state"], strict=strict)  ########
+            ms.load_state_dict(checkpoint["model_state"], strict=strict)
             # Load the optimizer state (commonly not done when fine-tuning)
             if optimizer:
                 optimizer.load_state_dict(checkpoint["optimizer_state"])

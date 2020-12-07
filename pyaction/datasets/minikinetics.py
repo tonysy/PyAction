@@ -2,7 +2,6 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 import os
-import random
 import numpy as np
 import torch
 import torch.utils.data
@@ -82,7 +81,9 @@ class Minikinetics(torch.utils.data.Dataset):
             elif self.center_crop_multi_view:
                 self._num_clips = cfg.TEST.NUM_ENSEMBLE_VIEWS * 1
             else:
-                self._num_clips = cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS
+                self._num_clips = (
+                    cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS
+                )
 
         # few-shot
         self.classes_per_set = cfg.META.SETTINGS.N_SUPPORT_WAY
@@ -98,21 +99,14 @@ class Minikinetics(torch.utils.data.Dataset):
         Construct the video loader.
         """
         # use test split for validation during training for convienience.
-        if self.mode == 'val' and self.cfg.META.DATA.TEST_AS_VAL:
-            split_name = 'test'
+        if self.mode == "val" and self.cfg.META.DATA.TEST_AS_VAL:
+            split_name = "test"
         else:
             split_name = self.mode
-        
+
         split_filename = "{}{}.csv".format(split_name, self.cfg.META.DATA.CSV_SUFFIX)
-        logger.info(
-            "Current Mode:{}, used split: {}".format(
-                self.mode, split_filename
-            )
-        )
-        path_to_file = os.path.join(
-            self.cfg.DATA.PATH_TO_DATA_DIR,
-            split_filename
-        )
+        logger.info("Current Mode:{}, used split: {}".format(self.mode, split_filename))
+        path_to_file = os.path.join(self.cfg.DATA.PATH_TO_DATA_DIR, split_filename)
         assert os.path.exists(path_to_file), "{} dir not found".format(path_to_file)
 
         self._path_to_videos = []
@@ -133,7 +127,7 @@ class Minikinetics(torch.utils.data.Dataset):
         assert (
             len(self._path_to_videos) > 0
         ), "Failed to load Kinetics split {} from {}".format(
-            self._split_idx, path_to_file  ##### where's self._split_idx's definition?
+            self._split_idx, path_to_file
         )
         logger.info(
             "Constructing kinetics dataloader (size: {}) from {}".format(
@@ -143,13 +137,15 @@ class Minikinetics(torch.utils.data.Dataset):
 
         # For few-shot learning
         self.data_classes = []  # list of data lists for each class
-        for _ in range(max(self._labels)+1):
+        for _ in range(max(self._labels) + 1):
             self.data_classes.append([])
         for i in range(len(self._labels)):
             path = self._path_to_videos[i]
             label = self._labels[i]
             spatial_temporal_idx = self._spatial_temporal_idx[i]
-            self.data_classes[label].append({"idx": i, "path": path, "spatial_temporal_idx": spatial_temporal_idx})
+            self.data_classes[label].append(
+                {"idx": i, "path": path, "spatial_temporal_idx": spatial_temporal_idx}
+            )
         self.n_classes = len(self.data_classes)
 
     def __getitem__(self, index):
@@ -184,7 +180,6 @@ class Minikinetics(torch.utils.data.Dataset):
         for i, cur_class in enumerate(classes):  # each class
             # Count number of times this class is inside the meta-test
             n_test_samples = np.sum(cur_class == x_hat_class)
-            # example_idxs = np.random.choice(len(self.data_classes[cur_class]), self.samples_per_class + n_test_samples + self._num_retries, False)
 
             example_idxs = np.random.permutation(len(self.data_classes[cur_class]))
 
@@ -204,7 +199,11 @@ class Minikinetics(torch.utils.data.Dataset):
                     if example_video:
                         break
                 if not example_video:
-                    raise RuntimeError("Failed to fetch video after {} retries.".format(self._num_retries))
+                    raise RuntimeError(
+                        "Failed to fetch video after {} retries.".format(
+                            self._num_retries
+                        )
+                    )
 
                 # absolute label
                 support_y_real.append(example_video["label"])
@@ -226,7 +225,11 @@ class Minikinetics(torch.utils.data.Dataset):
                     if example_video:
                         break
                 if not example_video:
-                    raise RuntimeError("Failed to fetch video after {} retries.".format(self._num_retries))
+                    raise RuntimeError(
+                        "Failed to fetch video after {} retries.".format(
+                            self._num_retries
+                        )
+                    )
 
                 # absolute label
                 target_y_real.append(example_video["label"])
@@ -303,7 +306,7 @@ class Minikinetics(torch.utils.data.Dataset):
 
         # Try to decode and sample a clip from a video. If the video can not be
         # decoded, repeatly find a random video replacement that can be decoded.
-        
+
         video_container = None
         try:
             video_container = container.get_video_container(
@@ -324,7 +327,7 @@ class Minikinetics(torch.utils.data.Dataset):
             self.cfg.DATA.SAMPLING_RATE,
             self.cfg.DATA.NUM_FRAMES,
             temporal_sample_index,
-            1 if self.unified_eval else self.cfg.TEST.NUM_ENSEMBLE_VIEWS,  # self.cfg.TEST.NUM_ENSEMBLE_VIEWS, does not affect train/val
+            1 if self.unified_eval else self.cfg.TEST.NUM_ENSEMBLE_VIEWS,
             video_meta=self._video_meta[index],
             target_fps=30,
         )
@@ -354,7 +357,6 @@ class Minikinetics(torch.utils.data.Dataset):
         # return frames, label, index, {}
         return {"frames": frames, "label": label, "index": index}
 
-    
     def __len__(self):
         """
         Returns:
@@ -368,9 +370,13 @@ class Minikinetics(torch.utils.data.Dataset):
         elif self.mode in ["test"]:
             return self.cfg.META.DATA.NUM_TEST_TASKS
 
-
     def spatial_sampling(
-        self, frames, spatial_idx=-1, min_scale=256, max_scale=320, crop_size=224,
+        self,
+        frames,
+        spatial_idx=-1,
+        min_scale=256,
+        max_scale=320,
+        crop_size=224,
     ):
         """
         Perform spatial sampling on the given video frames. If spatial_idx is
@@ -397,7 +403,10 @@ class Minikinetics(torch.utils.data.Dataset):
 
             if hasattr(self, "square_jitter") and self.square_jitter:
                 frames = torch.nn.functional.interpolate(
-                    frames, size=(min_scale, min_scale), mode="bilinear", align_corners=False,
+                    frames,
+                    size=(min_scale, min_scale),
+                    mode="bilinear",
+                    align_corners=False,
                 )
             else:
                 frames, _ = transform.random_short_side_scale_jitter(
@@ -410,13 +419,13 @@ class Minikinetics(torch.utils.data.Dataset):
             # The testing is deterministic and no jitter should be performed.
             # min_scale, max_scale, and crop_size are expect to be the same.
             # assert len({min_scale, max_scale, crop_size}) == 1
-            
-            if self.debug:
-                fr_sh_before = frames.shape
-            
+
             if hasattr(self, "square_jitter") and self.square_jitter:
                 frames = torch.nn.functional.interpolate(
-                    frames, size=(min_scale, min_scale), mode="bilinear", align_corners=False,
+                    frames,
+                    size=(min_scale, min_scale),
+                    mode="bilinear",
+                    align_corners=False,
                 )
             else:
                 frames, _ = transform.random_short_side_scale_jitter(
@@ -424,5 +433,5 @@ class Minikinetics(torch.utils.data.Dataset):
                 )
 
             frames, _ = transform.uniform_crop(frames, crop_size, spatial_idx)
-        
+
         return frames

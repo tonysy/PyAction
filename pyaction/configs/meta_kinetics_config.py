@@ -32,16 +32,16 @@ _config_dict = dict(
             # or bottom if height is larger than width.
             TEST_SPATIAL_MODE=1,
             TEST_AS_VAL=True,
-        )
+        ),
     ),
     BN=dict(
         USE_PRECISE_STATS=False,
         NUM_BATCHES_PRECISE=200,
     ),
     TRAIN=dict(
-        DATASET="minikinetics", 
-        BATCH_SIZE=16, #64
-        EVAL_PERIOD=5, 
+        DATASET="minikinetics",
+        BATCH_SIZE=16,  # 64
+        EVAL_PERIOD=5,
         CHECKPOINT_PERIOD=5,
         CHECKPOINT_FILE_PATH=osp.join(
             pyaction_home,
@@ -65,21 +65,22 @@ _config_dict = dict(
         WEIGHT_DECAY=0,
     ),
     TEST=dict(
-        ENABLE=True, 
-        DATASET="minikinetics", 
+        ENABLE=True,
+        DATASET="minikinetics",
         BATCH_SIZE=32,
         NUM_ENSEMBLE_VIEWS=1,
         NUM_SPATIAL_CROPS=1,
-
+        START_EPOCH=-1,
+        END_EPOCH=-1,
         # For few-shot learning
         # Eval Mode
-        UNIFIED_EVAL=True, 
+        UNIFIED_EVAL=True,
         CENTER_CROP_MULTI_VIEW=False,
         # Splits to eval
-        SPLITS=["test"], # {"train", "test"}
+        SPLITS=["test"],  # {"train", "test"}
         # use specified model
         LOAD_EPOCH=True,
-        EPOCH_IDS=list(range(100,0,-10)),
+        EPOCH_IDS=list(range(100, 0, -10)),
         NTEST=5,  # specify number of test epochs to be taken average
         ENDLESS=False,
         SUFFIX="256-224",
@@ -93,7 +94,7 @@ _config_dict = dict(
         TEST_CROP_SIZE=224,
         # For few-shot learning
         SQUARE_JITTER=True,
-        USE_REPLACED_CMN = True,
+        USE_REPLACED_CMN=True,
     ),
     MODEL=dict(
         ARCH="c2d_nopool",
@@ -105,7 +106,7 @@ _config_dict = dict(
         NUM_BLOCK_TEMP_KERNEL=[[3], [4], [6], [3]],
         # for few-shot
         GET_FEATURE=True,
-        FEATURE_DIM=64, # raw feature dim, added for few-shot
+        FEATURE_DIM=64,  # raw feature dim, added for few-shot
     ),
     DATA_LOADER=dict(
         NUM_WORKERS=4,
@@ -115,7 +116,7 @@ _config_dict = dict(
     NUM_GPUS=4,
     NUM_SHARDS=1,
     RNG_SEED=2147,
-    DIST_MULTIPROCESS=True, 
+    DIST_MULTIPROCESS=True,
 )
 
 

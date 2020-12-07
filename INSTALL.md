@@ -1,4 +1,21 @@
 # Installation Struction
+## 0. Meta Learning with PyAction
+
+```
+# Use 4-gpus as default
+
+# Train:
+pyaction_meta_run
+
+# Test with latest model
+pyaction_meta_run TRAIN.ENABLE False
+
+# Test with a specific file
+pyaction_meta_run TRAIN.ENABLE False TEST.CHECKPOINT_FILE_PATH /path-to-checkpoint-files/
+
+# Test with an interval
+pyaction_meta_run TRAIN.ENABLE False TEST.START_EPOCH 50 TEST.END_EPOCH 81
+```
 
 ## 1. Enverionment Setup
 ### Conda Environment

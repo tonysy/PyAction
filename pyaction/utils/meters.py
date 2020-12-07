@@ -53,9 +53,9 @@ class AVAMeter(object):
 
     def __init__(self, overall_iters, cfg, mode):
         """
-            overall_iters (int): the overall number of iterations of one epoch.
-            cfg (CfgNode): configs.
-            mode (str): `train`, `val`, or `test` mode.
+        overall_iters (int): the overall number of iterations of one epoch.
+        cfg (CfgNode): configs.
+        mode (str): `train`, `val`, or `test` mode.
         """
         self.cfg = cfg
         self.lr = None
@@ -663,10 +663,10 @@ class TrainMeter(object):
             "lr": self.lr,
             "mem": int(np.ceil(mem_usage)),
         }
-        
+
         if ext_items:
             stats.update(ext_items)  # expect dict
-        
+
         logging.log_json_stats(stats)
 
         if du.is_master_proc():
@@ -793,7 +793,6 @@ class ValMeter(object):
             writer.add_scalar("Epoch/val_top5_err", stats["top5_err"], cur_epoch)
 
 
-
 class MetaValMeter(object):
     """
     Measures validation stats for meta learnign setting.
@@ -910,8 +909,6 @@ class MetaValMeter(object):
             # writer.add_scalar("Epoch/val_top5_err", stats["top5_err"], cur_epoch)
 
 
-
-
 class MetaTestMeter(object):
     """
     Measures validation stats for meta learnign setting.
@@ -992,14 +989,14 @@ class MetaTestMeter(object):
             "iter": "{}/{}".format(cur_iter + 1, self.max_iter),
             "time_diff": self.iter_timer.seconds(),
             "eta": eta,
-            "curr_top1_err": self.mb_top1_err.get_win_median(),
-            "overall_top1_err": self.num_top1_mis / self.num_samples,
+            "top1_err_curr": self.mb_top1_err.get_win_median(),
+            "top1_err_overall": self.num_top1_mis / self.num_samples,
             # "top5_err": self.mb_top5_err.get_win_median(),
             "mem": int(np.ceil(mem_usage)),
         }
         logging.log_json_stats(stats)
 
-    def log_epoch_stats(self, cur_epoch, writer):
+    def log_epoch_stats(self, cur_epoch):
         """
         Log the stats of the current epoch.
         Args:
@@ -1013,17 +1010,16 @@ class MetaTestMeter(object):
         mem_usage = misc.gpu_mem_usage()
         stats = {
             "_type": "test_epoch",
-            "epoch": "{}/{}".format(cur_epoch + 1, self._cfg.SOLVER.MAX_EPOCH),
+            # "epoch": "{}/{}".format(cur_epoch + 1, self._cfg.SOLVER.MAX_EPOCH),
             "time_diff": self.iter_timer.seconds(),
-            "top1_err": top1_err,
-            "top1_acc": 100.0 - top1_err,
+            "final_top1_err": top1_err,
+            "final_top1_acc": 100.0 - top1_err,
             # "top5_err": top5_err,
             # "min_top1_err": self.min_top1_err,
             # "min_top5_err": self.min_top5_err,
             "mem": int(np.ceil(mem_usage)),
         }
         logging.log_json_stats(stats)
-        if du.is_master_proc() and writer is not None:
-            writer.add_scalar("Epoch/test_top1_err", stats["top1_err"], cur_epoch)
-            # writer.add_scalar("Epoch/val_top5_err", stats["top5_err"], cur_epoch)
-
+        # if du.is_master_proc() and writer is not None:
+        #     writer.add_scalar("Epoch/test_top1_err", stats["top1_err"], cur_epoch)
+        # writer.add_scalar("Epoch/val_top5_err", stats["top5_err"], cur_epoch)
