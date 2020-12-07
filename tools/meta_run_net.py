@@ -9,6 +9,7 @@ sys.path.insert(0, ".")
 
 import argparse
 import torch
+import time
 
 import pyaction.utils.checkpoint as cu
 import pyaction.utils.multiprocessing as mpu
@@ -34,7 +35,7 @@ def parse_args():
         cfg (str): path to the config file.
         opts (argument): provide addtional options from the command line, it
             overwrites the config loaded from file.
-        """
+    """
     parser = argparse.ArgumentParser(
         description="Provide PyAction training and testing pipeline."
     )
@@ -45,13 +46,22 @@ def parse_args():
         type=int,
     )
     parser.add_argument(
-        "--num_shards", help="Number of shards using by the job", default=1, type=int,
+        "--num_shards",
+        help="Number of shards using by the job",
+        default=1,
+        type=int,
     )
     parser.add_argument(
         "--init_method",
         help="Initialization method, includes TCP or shared file-system",
-        default="tcp://localhost:9999",
+        # default="tcp://localhost:9999",
+        default="auto",
         type=str,
+    )
+    parser.add_argument(
+        "--skip-check",
+        action="store_true",
+        help="skip gpu check and run experiment directly",
     )
     parser.add_argument(
         "opts",
@@ -90,14 +100,39 @@ def load_config(args):
     return cfg
 
 
+def get_gpu_status():
+    from gpustat.core import GPUStatCollection
+
+    gpus_stats = GPUStatCollection.new_query()
+
+    info = gpus_stats.jsonify()["gpus"]
+    gpu_list = []
+
+    mem_ratio_threshold = 0.02  #
+    util_ratio_threshold = 10  #
+    for idx, each in enumerate(info):
+        mem_ratio = each["memory.used"] / each["memory.total"]
+        util_ratio = each["utilization.gpu"]
+        if mem_ratio < mem_ratio_threshold and util_ratio < util_ratio_threshold:
+            gpu_list.append(idx)
+    print("Scan GPUs to get {} free GPU".format(len(gpu_list)))
+    return gpu_list
+
+
 def main():
     """
     Main function to spawn the train and test process.
     """
+
     args = parse_args()
+
     cfg = load_config(args)
     cfg.link_log()
     print("soft link to {}".format(cfg.OUTPUT_DIR))
+    # Skip GPU check or not
+    if not args.skip_check:
+        while len(get_gpu_status()) < cfg.NUM_GPUS:
+            time.sleep(20)  # wait 20 seconds for scan
 
     # Perform training.
     if cfg.TRAIN.ENABLE:
@@ -124,7 +159,7 @@ def main():
                     backend=cfg.DIST_BACKEND,
                     init_method=args.init_method,
                     world_size=cfg.NUM_SHARDS,
-                    rank=cfg.SHARD_ID
+                    rank=cfg.SHARD_ID,
                 )
                 train(cfg=cfg)
 
@@ -156,13 +191,12 @@ def main():
                     backend=cfg.DIST_BACKEND,
                     init_method=args.init_method,
                     world_size=cfg.NUM_SHARDS,
-                    rank=cfg.SHARD_ID
+                    rank=cfg.SHARD_ID,
                 )
                 test(cfg=cfg)
 
             except Exception as e:
                 raise e
-
 
 
 if __name__ == "__main__":

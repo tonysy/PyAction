@@ -4,6 +4,34 @@
 """Multiprocessing helpers."""
 
 import torch
+import os
+import time
+
+
+def _get_local_ip():
+    """
+    Find an ip address of current machine / node.
+    """
+    import ifcfg
+
+    # ip = ifcfg.default_interface()["inet4"][0]
+    ip = ifcfg.interfaces()["ib0"]["inet"]
+    return ip
+
+
+def _find_free_port():
+    """
+    Find an available port of current machine / node.
+    """
+    import socket
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # Binding to port 0 will cause the OS to find an available port for us
+    sock.bind(("", 0))
+    port = sock.getsockname()[1]
+    sock.close()
+    # NOTE: there is still a chance the port could be taken by other processes.
+    return port
 
 
 def run(local_rank, num_proc, func, init_method, shard_id, num_shards, backend, cfg):
@@ -34,9 +62,33 @@ def run(local_rank, num_proc, func, init_method, shard_id, num_shards, backend, 
     world_size = num_proc * num_shards
     rank = shard_id * num_proc + local_rank
 
+    if init_method == "auto":
+        if rank > 0:
+            try:
+                for _ in range(600):
+                    if os.path.exists(".ip_dist_url"):
+                        break
+                    time.sleep(1)
+                with open(".ip_dist_url", "r") as f:
+                    init_method = f.readline()
+            except Exception:
+                assert (
+                    num_shards == 1
+                ), "dist_url=auto cannot work with distributed training."
+        else:
+            port = _find_free_port()
+            init_method = f"tcp://127.0.0.1:{port}"
+            local_ip = _get_local_ip()
+            ip_dist_url = f"tcp://{local_ip}:{port}"
+            with open(".ip_dist_url", "w") as f:
+                f.writelines([ip_dist_url])
+
     try:
         torch.distributed.init_process_group(
-            backend=backend, init_method=init_method, world_size=world_size, rank=rank,
+            backend=backend,
+            init_method=init_method,
+            world_size=world_size,
+            rank=rank,
         )
     except Exception as e:
         raise e
