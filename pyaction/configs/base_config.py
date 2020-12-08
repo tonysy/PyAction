@@ -68,6 +68,7 @@ _config_dict = dict(
         NUM_SPATIAL_CROPS=3,
         # Checkpoint types include `caffe2` or `pytorch`.
         CHECKPOINT_TYPE="pytorch",
+        CHECKPOINT_INFLATE=False,
     ),
     RESNET=dict(
         # Transformation function.
@@ -435,8 +436,7 @@ class BaseConfig(object):
         return param_list
 
     def diff(self, config) -> dict:
-        """
-        """
+        """"""
         assert isinstance(config, BaseConfig), "config is not a subclass of BaseConfig"
         diff_result = {}
         self_param_list = self._get_param_list()

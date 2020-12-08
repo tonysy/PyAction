@@ -197,7 +197,7 @@ def meta_test(cfg):
             model,
             cfg.NUM_GPUS > 1,
             None,
-            inflation=False,
+            inflation=cfg.TEST.CHECKPOINT_INFLATE,
             convert_from_caffe2=cfg.TEST.CHECKPOINT_TYPE == "caffe2",
         )
         perform_test(model, cfg, logger)

@@ -330,7 +330,7 @@ def train(cfg):
         # Compute precise BN stats.
         if cfg.BN.USE_PRECISE_STATS and len(get_bn_modules(model)) > 0:
             calculate_and_update_precise_bn(
-                train_loader, model, min(len(train_loader)//2, cfg.BN.NUM_BATCHES_PRECISE)
+                train_loader, model, cfg.BN.NUM_BATCHES_PRECISE
             )
 
         # Save a checkpoint.

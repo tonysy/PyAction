@@ -13,7 +13,7 @@ for name in ["train", "val", "test"]:
     for line in lines:
         c = line.split("/")[0].replace(" ", "_")
         set_classes.add(c)
-    dict_class_label = {k:i for i, k in enumerate(set_classes)}
+    dict_class_label = {k: i for i, k in enumerate(set_classes)}
     print(dict_class_label)
 
     # gen csv
@@ -23,9 +23,11 @@ for name in ["train", "val", "test"]:
             c = line.split("/")[0]
             l = dict_class_label[c]
             csv_file.writelines(
-                os.path.expanduser("~/Datasets/kinetics-400/raw-part/compress/train_256/{}.mp4 {}\n").format(line, l)
+                os.path.expanduser(
+                    "~/Datasets/kinetics-400/raw-part/compress/train_256/{}.mp4 {}\n"
+                ).format(line, l)
             )
-    
+
     # verify csv
     with open("{}.csv".format(name), "r") as csv_file:
         lines = csv_file.readlines()

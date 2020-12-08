@@ -322,7 +322,7 @@ class Minikinetics(torch.utils.data.Dataset):
             return False
 
         # Decode video. Meta info is used to perform selective decoding.
-        frames = decoder.decode(
+        frames = decoder.meta_decode(
             video_container,
             self.cfg.DATA.SAMPLING_RATE,
             self.cfg.DATA.NUM_FRAMES,

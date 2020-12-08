@@ -21,21 +21,35 @@ def temporal_sampling(frames, start_idx, end_idx, num_samples):
         frames (tersor): a tensor of temporal sampled video frames, dimension is
             `num clip frames` x `channel` x `height` x `width`.
     """
-
-    """
-    # print("{}, st:{}, ed:{}, num samples: {}".format(frames.shape[0], start_idx, end_idx, num_samples))
-    index = torch.linspace(start_idx, end_idx, num_samples) 
+    index = torch.linspace(start_idx, end_idx, num_samples)
     index = torch.clamp(index, 0, frames.shape[0] - 1).long()
     frames = torch.index_select(frames, 0, index)
     return frames
+
+
+def meta_temporal_sampling(frames, start_idx, end_idx, num_samples):
+    """
+    Given the start and end frame index, sample num_samples frames between
+    the start and end with equal interval.
+    Args:
+        frames (tensor): a tensor of video frames, dimension is
+            `num video frames` x `channel` x `height` x `width`.
+        start_idx (int): the index of the start frame.
+        end_idx (int): the index of the end frame.
+        num_samples (int): number of frames to sample.
+    Returns:
+        frames (tersor): a tensor of temporal sampled video frames, dimension is
+            `num clip frames` x `channel` x `height` x `width`.
     """
 
-    index = torch.linspace(start_idx, end_idx, num_samples+1)  # +1 for interval endpoints
+    index = torch.linspace(
+        start_idx, end_idx, num_samples + 1
+    )  # +1 for interval endpoints
     index = torch.clamp(index, 0, frames.shape[0] - 1).long()
     # print(start_idx, end_idx, "|", index,"\n")
     index = index[:-1]
 
-    seg_size = (end_idx-start_idx)/num_samples
+    seg_size = (end_idx - start_idx) / num_samples
     offsets = (torch.rand(num_samples) * seg_size).long()
     index = torch.clamp(index + offsets, 0, frames.shape[0] - 1).long()
 
@@ -74,25 +88,12 @@ def get_start_end_idx(video_size, clip_size, clip_idx, num_clips):
         start_idx = delta * clip_idx / num_clips
     end_idx = start_idx + clip_size - 1
 
-    ###############################
-    # DEBUG
-    ################################
     if num_clips == 1:
         return 0, video_size
 
-    print("vsize, csize, nclip, cid, st, ed: ", video_size, clip_size, num_clips, clip_idx, start_idx, end_idx, "\n")
+    # print("vsize, csize, nclip, cid, st, ed: ",
+    # video_size, clip_size, num_clips, clip_idx, start_idx, end_idx, "\n")
     return start_idx, end_idx
-
-    """
-    start_idx = random.uniform(0, delta)
-    end_idx = start_idx + clip_size - 1
-
-    print("vsize, csize, nclip, cid, st, ed: ", video_size, clip_size, num_clips, clip_idx, start_idx, end_idx, "\n")
-
-    return start_idx, end_idx
-    """
-
-
 
 
 def pyav_decode_stream(
@@ -242,7 +243,12 @@ def decode(
     assert clip_idx >= -1, "Not valied clip_idx {}".format(clip_idx)
     try:
         frames, fps, decode_all_video = pyav_decode(
-            container, sampling_rate, num_frames, clip_idx, num_clips, target_fps,
+            container,
+            sampling_rate,
+            num_frames,
+            clip_idx,
+            num_clips,
+            target_fps,
         )
     except Exception as e:
         print("Failed to decode with pyav with exception: {}".format(e))
@@ -259,9 +265,71 @@ def decode(
         num_clips if decode_all_video else 1,
     )
 
-    # print("{}, {}, {}, {}".format(frames.shape[0], start_idx, end_idx, decode_all_video))
-
     # Perform temporal sampling from the decoded video.
     frames = temporal_sampling(frames, start_idx, end_idx, num_frames)
+
+    return frames
+
+
+def meta_decode(
+    container,
+    sampling_rate,
+    num_frames,
+    clip_idx=-1,
+    num_clips=10,
+    video_meta=None,
+    target_fps=30,
+):
+    """
+    Decode the video and perform temporal sampling.
+    Args:
+        container (container): pyav container.
+        sampling_rate (int): frame sampling rate (interval between two sampled
+            frames).
+        num_frames (int): number of frames to sample.
+        clip_idx (int): if clip_idx is -1, perform random temporal
+            sampling. If clip_idx is larger than -1, uniformly split the
+            video to num_clips clips, and select the
+            clip_idx-th video clip.
+        num_clips (int): overall number of clips to uniformly
+            sample from the given video.
+        video_meta (dict): a dict contains "fps", "timebase", and
+            "max_pts":
+            `fps` is the frames per second of the given video.
+            `timebase` is the video timebase.
+            `max_pts` is the largest pts from the video.
+        target_fps (int): the input video may have different fps, convert it to
+            the target video fps before frame sampling.
+    Returns:
+        frames (tensor): decoded frames from the video.
+    """
+    # Currently support two decoders: 1) PyAV, and 2) TorchVision.
+    assert clip_idx >= -1, "Not valied clip_idx {}".format(clip_idx)
+    try:
+        frames, fps, decode_all_video = pyav_decode(
+            container,
+            sampling_rate,
+            num_frames,
+            clip_idx,
+            num_clips,
+            target_fps,
+        )
+    except Exception as e:
+        print("Failed to decode with pyav with exception: {}".format(e))
+        return None
+
+    # Return None if the frames was not decoded successfully.
+    if frames is None:
+        return frames
+
+    start_idx, end_idx = get_start_end_idx(
+        frames.shape[0],
+        num_frames * sampling_rate * fps / target_fps,
+        clip_idx if decode_all_video else 0,
+        num_clips if decode_all_video else 1,
+    )
+
+    # Perform temporal sampling from the decoded video.
+    frames = meta_temporal_sampling(frames, start_idx, end_idx, num_frames)
 
     return frames

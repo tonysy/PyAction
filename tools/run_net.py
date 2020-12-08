@@ -15,13 +15,7 @@ import pyaction.utils.multiprocessing as mpu
 
 from config import config
 from test_net import test
-
-if config.META.ENABLE:
-    from meta_train_net import train
-elif hasattr(config, "FEW_SHOT"):
-    from train_net_fewshot import train
-else:
-    from train_net import train
+from train_net import train
 
 # from pyaction.config.defaults import get_cfg
 
@@ -40,7 +34,7 @@ def parse_args():
         cfg (str): path to the config file.
         opts (argument): provide addtional options from the command line, it
             overwrites the config loaded from file.
-        """
+    """
     parser = argparse.ArgumentParser(
         description="Provide PyAction training and testing pipeline."
     )
@@ -51,7 +45,10 @@ def parse_args():
         type=int,
     )
     parser.add_argument(
-        "--num_shards", help="Number of shards using by the job", default=1, type=int,
+        "--num_shards",
+        help="Number of shards using by the job",
+        default=1,
+        type=int,
     )
     parser.add_argument(
         "--init_method",
@@ -142,7 +139,7 @@ def main():
                     backend=cfg.DIST_BACKEND,
                     init_method=args.init_method,
                     world_size=cfg.NUM_SHARDS,
-                    rank=cfg.SHARD_ID
+                    rank=cfg.SHARD_ID,
                 )
                 train(cfg=cfg)
 
@@ -174,13 +171,12 @@ def main():
                     backend=cfg.DIST_BACKEND,
                     init_method=args.init_method,
                     world_size=cfg.NUM_SHARDS,
-                    rank=cfg.SHARD_ID
+                    rank=cfg.SHARD_ID,
                 )
                 test(cfg=cfg)
 
             except Exception as e:
                 raise e
-
 
 
 if __name__ == "__main__":

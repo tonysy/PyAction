@@ -14,7 +14,7 @@ def parse_args():
             devices. Options includes TCP or shared file-system for
             initialization. details can be find in
             https://pytorch.org/docs/stable/distributed.html#tcp-initialization
-        """
+    """
     parser = argparse.ArgumentParser(
         description="Provide PyAction Kinetics Data Processing."
     )
@@ -22,7 +22,7 @@ def parse_args():
     parser.add_argument(
         "--path-prefix",
         help="Folder of Kinetics dataset",
-        default=os.path.expanduser("~/Datasets/kinetics-400/raw-part/compress"), #"/public/sist/home/hexm/Datasets/",
+        default=os.path.expanduser(""),
         type=str,
     )
 
@@ -30,13 +30,12 @@ def parse_args():
     #     parser.print_help()
     return parser.parse_args()
 
+
 # dataset_path_prefix = "/public/sist/home/hexm/Datasets/"
 args = parse_args()
 dataset_path_prefix = args.path_prefix
 
-data_path = os.path.join(
-    dataset_path_prefix, "train_256"
-)
+data_path = os.path.join(dataset_path_prefix, "train_256")
 
 assert os.path.exists(data_path)
 cat_list = os.listdir(data_path)
@@ -50,9 +49,7 @@ if not os.path.exists("./cat_mapping.json"):
         json.dump(cat_mapping, f)
 
 # ------------- Train CSV generation ----------------------
-train_data_path = os.path.join(
-    dataset_path_prefix, "train_256"
-)
+train_data_path = os.path.join(dataset_path_prefix, "train_256")
 
 train_cat_dict = {}
 for item in tqdm(cat_list):
@@ -74,9 +71,7 @@ print("Total Train {} video clips".format(len(train_csv_list)))
 
 # ------------- Val CSV generation ----------------------
 
-val_data_path = os.path.join(
-    dataset_path_prefix, "val_256"
-)
+val_data_path = os.path.join(dataset_path_prefix, "val_256")
 
 val_cat_dict = {}
 for item in tqdm(cat_list):

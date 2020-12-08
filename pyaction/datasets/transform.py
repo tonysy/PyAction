@@ -42,7 +42,10 @@ def random_short_side_scale_jitter(images, min_size, max_size, boxes=None):
 
     return (
         torch.nn.functional.interpolate(
-            images, size=(new_height, new_width), mode="bilinear", align_corners=False,
+            images,
+            size=(new_height, new_width),
+            mode="bilinear",
+            align_corners=False,
         ),
         boxes,
     )
@@ -147,9 +150,6 @@ def uniform_crop(images, size, spatial_idx, boxes=None):
         cropped_boxes (ndarray or None): the cropped boxes with dimension of
             `num boxes` x 4.
     """
-
-    # print("uniform_crop!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!") # checked
-
     assert spatial_idx in [0, 1, 2]
     height = images.shape[2]
     width = images.shape[3]
@@ -345,7 +345,8 @@ def lighting_jitter(images, alphastd, eigval, eigvec):
     eig_vec = np.array(eigvec)
     eig_val = np.reshape(eigval, (1, 3))
     rgb = np.sum(
-        eig_vec * np.repeat(alpha, 3, axis=0) * np.repeat(eig_val, 3, axis=0), axis=1,
+        eig_vec * np.repeat(alpha, 3, axis=0) * np.repeat(eig_val, 3, axis=0),
+        axis=1,
     )
     out_images = torch.zeros_like(images)
     for idx in range(images.shape[1]):

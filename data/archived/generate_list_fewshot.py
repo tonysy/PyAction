@@ -5,6 +5,7 @@ from tqdm import tqdm
 import argparse
 import random
 
+
 def parse_args():
     """
     Parse the following arguments for the data processing pipeline.
@@ -14,7 +15,7 @@ def parse_args():
             devices. Options includes TCP or shared file-system for
             initialization. details can be find in
             https://pytorch.org/docs/stable/distributed.html#tcp-initialization
-        """
+    """
     parser = argparse.ArgumentParser(
         description="Provide PyAction Kinetics Data Processing."
     )
@@ -22,13 +23,16 @@ def parse_args():
     parser.add_argument(
         "--path-prefix",
         help="Folder of Kinetics dataset",
-        default=os.path.expanduser("~/Datasets/kinetics-400/raw-part/compress"), #"/public/sist/home/hexm/Datasets/",
+        default=os.path.expanduser(
+            "~/Datasets/kinetics-400/raw-part/compress"
+        ),  # "/public/sist/home/hexm/Datasets/",
         type=str,
     )
 
     # if len(sys.argv) == 1:
     #     parser.print_help()
     return parser.parse_args()
+
 
 n_train_classes = 64
 n_val_classes = 12
@@ -39,9 +43,7 @@ n_samples_per_class = 100
 args = parse_args()
 dataset_path_prefix = args.path_prefix
 
-data_path = os.path.join(
-    dataset_path_prefix, "train_256"
-)
+data_path = os.path.join(dataset_path_prefix, "train_256")
 
 assert os.path.exists(data_path)
 all_list = os.listdir(data_path)
@@ -51,7 +53,7 @@ all_list = os.listdir(data_path)
 # randomly select n_train_classes classes
 train_list = random.sample(all_list, n_train_classes)
 train_list = sorted(train_list)
-assert len(train_list) == n_train_classes #400
+assert len(train_list) == n_train_classes  # 400
 
 train_mapping = {item: idx for idx, item in enumerate(train_list)}
 
@@ -61,7 +63,8 @@ if not os.path.exists("./train_mapping.json"):
 
 # train_list: sorted class names
 # train_cat_dict: mapping class name => video list of this class(in this folder)
-# train_csv_list: list of "video_path label" strings  # e.g. /root/Datasets/kinetics-400/raw-part/compress/train_256/abseiling/zxOmGsxBHGU_000185_000195.mp4 0
+# train_csv_list: list of "video_path label" strings
+# /root/Datasets/kinetics-400/raw-part/compress/train_256/abseiling/zxOmGsxBHGU_000185_000195.mp4 0
 train_cat_dict = {}
 for item in tqdm(train_list):
     # randomly select n_samples_per_class samples per class
@@ -157,6 +160,3 @@ with open("test.csv", "w") as f:
     f.writelines(test_csv_list)
 
 print("Total test {} video clips".format(len(test_csv_list)))
-
-
-
