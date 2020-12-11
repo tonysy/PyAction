@@ -1023,3 +1023,222 @@ class MetaTestMeter(object):
         # if du.is_master_proc() and writer is not None:
         #     writer.add_scalar("Epoch/test_top1_err", stats["top1_err"], cur_epoch)
         # writer.add_scalar("Epoch/val_top5_err", stats["top5_err"], cur_epoch)
+
+
+class MetaTrainMeterV2(object):
+    """
+    Measure training stats.
+    """
+
+    def __init__(self, epoch_iters, cfg):
+        """
+        Args:
+            epoch_iters (int): the overall number of iterations of one epoch.
+            cfg (CfgNode): configs.
+        """
+        self._cfg = cfg
+        self.epoch_iters = epoch_iters
+        self.MAX_EPOCH = cfg.SOLVER.MAX_EPOCH * epoch_iters
+        self.iter_timer = Timer()
+        self.loss = ScalarMeter(cfg.LOG_PERIOD)
+        self.loss_total = 0.0
+        self.lr = None
+        # Current minibatch errors (smoothed over a window).
+        self.mb_meta_top1_err = ScalarMeter(cfg.LOG_PERIOD)
+        self.mb_sem_top1_err = ScalarMeter(cfg.LOG_PERIOD)
+        # Number of misclassified examples.
+        self.num_meta_top1_mis = 0
+        self.num_sem_top1_mis = 0
+        self.num_samples = 0
+
+    def reset(self):
+        """
+        Reset the Meter.
+        """
+        self.loss.reset()
+        self.loss_total = 0.0
+        self.lr = None
+        self.mb_meta_top1_err.reset()
+        self.mb_sem_top1_err.reset()
+        self.num_meta_top1_mis = 0
+        self.num_sem_top1_mis = 0
+        self.num_samples = 0
+
+    def iter_tic(self):
+        """
+        Start to record time.
+        """
+        self.iter_timer.reset()
+
+    def iter_toc(self):
+        """
+        Stop to record time.
+        """
+        self.iter_timer.pause()
+
+    def iter_data_toc(self):
+        """
+        Stop to record data processing time
+        """
+        self.iter_timer.data_toc()
+
+    def iter_forward_toc(self):
+        """
+        Stop to record network forward time
+        """
+        self.iter_timer.forward_toc()
+
+    def iter_loss_toc(self):
+        """
+        Stop to record network forward time
+        """
+        self.iter_timer.loss_toc()
+
+    def iter_backward_toc(self):
+        """
+        Stop to record network backward time
+        """
+        self.iter_timer.backward_toc()
+
+    def update_stats(self, meta_top1_err, sem_top1_err, loss, lr, mb_size):
+        """
+        Update the current stats.
+        Args:
+            top1_err (float): top1 error rate.
+            top5_err (float): top5 error rate.
+            loss (float): loss value.
+            lr (float): learning rate.
+            mb_size (int): mini batch size.
+        """
+        # Current minibatch stats
+        self.mb_meta_top1_err.add_value(meta_top1_err)
+        self.mb_sem_top1_err.add_value(sem_top1_err)
+        self.loss.add_value(loss)
+        self.lr = lr
+        # Aggregate stats
+        self.num_meta_top1_mis += meta_top1_err * mb_size
+        self.num_sem_top1_mis += sem_top1_err * mb_size
+        self.loss_total += loss * mb_size
+        self.num_samples += mb_size
+
+    def log_iter_stats(self, cur_epoch, cur_iter, writer):
+        """
+        log the stats of the current iteration.
+        Args:
+            cur_epoch (int): the number of current epoch.
+            cur_iter (int): the number of current iteration.
+            writer (tensorboard summarywriter): writer to storage the scalars for curve.
+        """
+        if (cur_iter + 1) % self._cfg.LOG_PERIOD != 0:
+            return
+        # Method-1
+        # eta_sec = self.iter_timer.seconds() * (
+        #     self.MAX_EPOCH - (cur_epoch * self.epoch_iters + cur_iter + 1)
+        # )
+        # Method-2
+        # total_iters = cur_epoch * self.epoch_iters + cur_iter + 1
+        # past_seconds = self.iter_timer.past()
+        # eta_sec = (past_seconds / total_iters) * (
+        #     self.MAX_EPOCH - (cur_epoch * self.epoch_iters + cur_iter + 1)
+        # )
+        # Method-3
+        self.iter_timer._past_durations.append(self.iter_timer.seconds())
+        try:
+            eta_sec = mean(self.iter_timer._past_durations[-500:])
+        except Exception as e:
+            print(e)
+            eta_sec = mean(self.iter_timer._past_durations)
+
+        eta_sec = eta_sec * (
+            self.MAX_EPOCH - (cur_epoch * self.epoch_iters + cur_iter + 1)
+        )
+
+        eta = str(datetime.timedelta(seconds=int(eta_sec)))
+
+        # import pdb; pdb.set_trace()
+
+        mem_usage = misc.gpu_mem_usage()
+        stats = {
+            "_type": "train_iter",
+            "epoch": "{}/{}".format(cur_epoch + 1, self._cfg.SOLVER.MAX_EPOCH),
+            "iter": "{}/{}".format(cur_iter + 1, self.epoch_iters),
+            "time_diff": self.iter_timer.seconds(),
+            "time_data": self.iter_timer.data_time,
+            "time_forward": self.iter_timer.forward_time,
+            "time_loss": self.iter_timer.loss_time,
+            "time_backward": self.iter_timer.backward_time,
+            "eta": eta,
+            "meta_top1_err": self.mb_meta_top1_err.get_win_median(),
+            "sem_top1_err": self.mb_sem_top1_err.get_win_median(),
+            "loss": self.loss.get_win_median(),
+            "lr": self.lr,
+            "mem": int(np.ceil(mem_usage)),
+        }
+        logging.log_json_stats(stats)
+
+        if du.is_master_proc():
+            # Add metrics into tensorboard
+            iter_idx = cur_epoch * self.epoch_iters + cur_iter + 1
+            # Time
+            writer.add_scalar("Time/train_diff", stats["time_diff"], iter_idx)
+            writer.add_scalar("Time/train_loss", stats["time_loss"], iter_idx)
+            writer.add_scalar("Time/train_forward", stats["time_forward"], iter_idx)
+            writer.add_scalar("Time/train_backward", stats["time_backward"], iter_idx)
+            # writer.add_scalar("Time/train_eta", stats['eta'], iter_idx)
+            # Error
+            writer.add_scalar(
+                "Error/train_meta_top1_err", stats["meta_top1_err"], iter_idx
+            )
+            writer.add_scalar(
+                "Error/train_sem_top1_err", stats["sem_top1_err"], iter_idx
+            )
+            # LR
+            writer.add_scalar("Utils/train_lr", stats["lr"], iter_idx)
+            writer.add_scalar("Utils/train_mem", stats["mem"], iter_idx)
+            # Loss
+            writer.add_scalar("Loss/train_loss", stats["loss"], iter_idx)
+
+    def log_epoch_stats(self, cur_epoch, writer, ext_items=None):
+        """
+        Log the stats of the current epoch.
+        Args:
+            cur_epoch (int): the number of current epoch.
+            writer (tensorboard summarywriter): writer to storage the scalars for curve
+        """
+        eta_sec = self.iter_timer.seconds() * (
+            self.MAX_EPOCH - (cur_epoch + 1) * self.epoch_iters
+        )
+        eta = str(datetime.timedelta(seconds=int(eta_sec)))
+        mem_usage = misc.gpu_mem_usage()
+        meta_top1_err = self.num_meta_top1_mis / self.num_samples
+        sem_top1_err = self.num_sem_top1_mis / self.num_samples
+        avg_loss = self.loss_total / self.num_samples
+        stats = {
+            "_type": "train_epoch",
+            "epoch": "{}/{}".format(cur_epoch + 1, self._cfg.SOLVER.MAX_EPOCH),
+            "time_diff": self.iter_timer.seconds(),
+            "eta": eta,
+            "meta_top1_err": meta_top1_err,
+            "sem_top1_err": sem_top1_err,
+            "loss": avg_loss,
+            "lr": self.lr,
+            "mem": int(np.ceil(mem_usage)),
+        }
+
+        if ext_items:
+            stats.update(ext_items)  # expect dict
+
+        logging.log_json_stats(stats)
+
+        if du.is_master_proc():
+            # Add tensorboard metrix for visualization
+            writer.add_scalar("Epoch/train_loss", stats["loss"], cur_epoch + 1)
+            writer.add_scalar(
+                "Epoch/train_meta_top1_err", stats["meta_top1_err"], cur_epoch + 1
+            )
+            writer.add_scalar(
+                "Epoch/train_sem_top1_err", stats["sem_top1_err"], cur_epoch + 1
+            )
+            if ext_items:
+                for k in ext_items:
+                    writer.add_scalar("Epoch/" + k, ext_items[k], cur_epoch)

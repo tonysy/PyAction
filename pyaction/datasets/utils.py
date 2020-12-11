@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 
+import os
 import logging
 import numpy as np
 import time
 import cv2
 import torch
+from collections import defaultdict
+from fvcore.common.file_io import PathManager
 
 logger = logging.getLogger(__name__)
 
@@ -12,17 +15,20 @@ logger = logging.getLogger(__name__)
 def retry_load_images(image_paths, retry=10, backend="pytorch"):
     """
     This function is to load images with support of retrying for failed load.
-
     Args:
         image_paths (list): paths of images needed to be loaded.
         retry (int, optional): maximum time of loading retrying. Defaults to 10.
         backend (str): `pytorch` or `cv2`.
-
     Returns:
         imgs (list): list of loaded images.
     """
     for i in range(retry):
-        imgs = [cv2.imread(image_path) for image_path in image_paths]
+        imgs = []
+        for image_path in image_paths:
+            with PathManager.open(image_path, "rb") as f:
+                img_str = np.frombuffer(f.read(), np.uint8)
+                img = cv2.imdecode(img_str, flags=cv2.IMREAD_COLOR)
+            imgs.append(img)
 
         if all(img is not None for img in imgs):
             if backend == "pytorch":
@@ -69,6 +75,8 @@ def pack_pathway_output(cfg, frames):
         frame_list (list): list of tensors with the dimension of
             `channel` x `num frames` x `height` x `width`.
     """
+    if cfg.DATA.REVERSE_INPUT_CHANNEL:
+        frames = frames[[2, 1, 0], :, :, :]
     if cfg.MODEL.ARCH in cfg.MODEL.SINGLE_PATHWAY_ARCH:
         frame_list = [frames]
     elif cfg.MODEL.ARCH in cfg.MODEL.MULTI_PATHWAY_ARCH:
@@ -90,3 +98,66 @@ def pack_pathway_output(cfg, frames):
             )
         )
     return frame_list
+
+
+def tensor_normalize(tensor, mean, std):
+    """
+    Normalize a given tensor by subtracting the mean and dividing the std.
+    Args:
+        tensor (tensor): tensor to normalize.
+        mean (tensor or list): mean value to subtract.
+        std (tensor or list): std to divide.
+    """
+    if tensor.dtype == torch.uint8:
+        tensor = tensor.float()
+        tensor = tensor / 255.0
+    if type(mean) == list:
+        mean = torch.tensor(mean)
+    if type(std) == list:
+        std = torch.tensor(std)
+    tensor = tensor - mean
+    tensor = tensor / std
+    return tensor
+
+
+def load_image_lists(frame_list_file, prefix="", return_list=False):
+    """
+    Load image paths and labels from a "frame list".
+    Each line of the frame list contains:
+    `original_vido_id video_id frame_id path labels`
+    Args:
+        frame_list_file (string): path to the frame list.
+        prefix (str): the prefix for the path.
+        return_list (bool): if True, return a list. If False, return a dict.
+    Returns:
+        image_paths (list or dict): list of list containing path to each frame.
+            If return_list is False, then return in a dict form.
+        labels (list or dict): list of list containing label of each frame.
+            If return_list is False, then return in a dict form.
+    """
+    image_paths = defaultdict(list)
+    labels = defaultdict(list)
+    with PathManager.open(frame_list_file, "r") as f:
+        assert f.readline().startswith("original_vido_id")
+        for line in f:
+            row = line.split()
+            # original_vido_id video_id frame_id path labels
+            assert len(row) == 5
+            video_name = row[0]
+            if prefix == "":
+                path = row[3]
+            else:
+                path = os.path.join(prefix, row[3])
+            image_paths[video_name].append(path)
+            frame_labels = row[-1].replace('"', "")
+            if frame_labels != "":
+                labels[video_name].append([int(x) for x in frame_labels.split(",")])
+            else:
+                labels[video_name].append([])
+
+    if return_list:
+        keys = image_paths.keys()
+        image_paths = [image_paths[key] for key in keys]
+        labels = [labels[key] for key in keys]
+        return image_paths, labels
+    return dict(image_paths), dict(labels)

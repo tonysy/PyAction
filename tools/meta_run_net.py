@@ -15,8 +15,12 @@ import pyaction.utils.checkpoint as cu
 import pyaction.utils.multiprocessing as mpu
 
 from config import config
-from meta_test_net import meta_test as test
-from meta_train_net import meta_train as train
+
+# from meta_test_net import meta_test as test
+from meta_test_net_v2 import meta_test as test
+
+# from meta_train_net import meta_train as train
+from meta_train_net_v2 import meta_train as train
 
 # from pyaction.config.defaults import get_cfg
 

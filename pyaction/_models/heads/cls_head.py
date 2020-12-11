@@ -19,6 +19,7 @@ class BasicHead(nn.Module):
     def __init__(
         self,
         cfg,
+        dim_in,
         pool_size,
     ):
         """
@@ -39,17 +40,9 @@ class BasicHead(nn.Module):
                 softmax on the output. 'sigmoid': applies sigmoid on the output.
         """
         super(BasicHead, self).__init__()
-        dim_in = [cfg.RESNET.WIDTH_PER_GROUP * 32]
         num_classes = cfg.MODEL.NUM_CLASSES
         dropout_rate = cfg.MODEL.DROPOUT_RATE
         act_func = cfg.MODEL.HEAD_ACT
-        pool_size = [
-            [
-                cfg.DATA.NUM_FRAMES // pool_size[0][0],
-                cfg.DATA.CROP_SIZE // 32 // pool_size[0][1],
-                cfg.DATA.CROP_SIZE // 32 // pool_size[0][2],
-            ]
-        ]
 
         assert (
             len({len(pool_size), len(dim_in)}) == 1

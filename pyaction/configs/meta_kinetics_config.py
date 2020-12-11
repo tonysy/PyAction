@@ -32,6 +32,8 @@ _config_dict = dict(
             # or bottom if height is larger than width.
             TEST_SPATIAL_MODE=1,
             TEST_AS_VAL=True,
+            UNIFIED_EVAL=True,
+            CENTER_CROP_MULTI_VIEW=False,
         ),
     ),
     BN=dict(
@@ -98,7 +100,7 @@ _config_dict = dict(
     ),
     MODEL=dict(
         ARCH="c2d_nopool",
-        NUM_CLASSES=5,
+        NUM_CLASSES=64,
     ),
     RESNET=dict(
         ZERO_INIT_FINAL_BN=True,

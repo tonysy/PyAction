@@ -215,6 +215,12 @@ def load_checkpoint(
         name_convert_func = get_name_convert_func()
         for key in caffe2_checkpoint["blobs"].keys():
             converted_key = name_convert_func(key)
+            # add for pyaction new model structure
+            if converted_key.startswith("s"):
+                converted_key = "backbone." + converted_key
+            else:
+                pass
+
             if converted_key in ms.state_dict():
                 if caffe2_checkpoint["blobs"][key].shape == tuple(
                     ms.state_dict()[converted_key].shape

@@ -157,6 +157,14 @@ _config_dict = dict(
         TRAIN_CROP_SIZE=224,
         # The spatial crop size for testing.
         TEST_CROP_SIZE=256,
+        # if True, sample uniformly in [1 / max_scale, 1 / min_scale] and take a
+        # reciprocal to get the scale. If False, take a uniform sample from
+        # [min_scale, max_scale].
+        INV_UNIFORM_SAMPLE=False,
+        # If True, perform random horizontal flip on the video frames during training.
+        RANDOM_FLIP=True,
+        # If True, revert the default input channel (RBG <-> BGR).
+        REVERSE_INPUT_CHANNEL=False,
     ),
     DATA_LOADER=dict(
         # Number of data loader workers per training process.

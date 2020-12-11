@@ -34,7 +34,11 @@ _config_dict = dict(
         ARCH="c2d",
         NUM_CLASSES=400,
     ),
-    TEST=dict(ENABLE=True, DATASET="kinetics", BATCH_SIZE=64),
+    TEST=dict(
+        ENABLE=True,
+        DATASET="kinetics",
+        BATCH_SIZE=64,
+    ),
     DATA_LOADER=dict(
         NUM_WORKERS=4,
         PIN_MEMORY=True,
