@@ -52,9 +52,9 @@ class Minikinetics(torch.utils.data.Dataset):
         # square video resize
         self.square_jitter = cfg.META.DATA.SQUARE_JITTER
         # Unified test metric
-        self.unified_eval = cfg.TEST.UNIFIED_EVAL
+        self.unified_eval = cfg.META.DATA.UNIFIED_EVAL
         # Center-crop & multi-view
-        self.center_crop_multi_view = cfg.TEST.CENTER_CROP_MULTI_VIEW
+        self.center_crop_multi_view = cfg.META.DATA.CENTER_CROP_MULTI_VIEW
 
         # Conflit
         assert not (self.unified_eval and self.center_crop_multi_view)
@@ -86,10 +86,10 @@ class Minikinetics(torch.utils.data.Dataset):
                 )
 
         # few-shot
-        self.classes_per_set = cfg.META.SETTINGS.N_SUPPORT_WAY
-        self.samples_per_class = cfg.META.SETTINGS.K_SUPPORT_SHOT
-
-        self.use_replaced_cmn_list = cfg.DATA.USE_REPLACED_CMN
+        self.n_support_way = cfg.META.SETTINGS.N_SUPPORT_WAY
+        self.k_support_shot = cfg.META.SETTINGS.K_SUPPORT_SHOT
+        self.n_query_way = cfg.META.SETTINGS.N_QUERY_WAY
+        self.k_query_shot = cfg.META.SETTINGS.K_QUERY_SHOT
 
         logger.info("Constructing Kinetics {}...".format(mode))
         self._construct_loader()
@@ -164,38 +164,36 @@ class Minikinetics(torch.utils.data.Dataset):
                 index of the video replacement that can be decoded.
         """
         # select a non-overlapping label set
-        classes = np.random.choice(self.n_classes, self.classes_per_set, False)
+        support_classes = np.random.choice(self.n_classes, self.n_support_way, False)
         # select classes for each test sample
-        x_hat_class = np.random.choice(classes, self.samples_per_class, True)
+        # x_hat_class = np.random.choice(support_classes, self.samples_per_class, True)
+        query_classes = np.random.choice(support_classes, self.n_query_way, False)
 
-        support_x = []
-        support_y = []
-        target_x = []
-        target_y = []
+        support_data = []
+        support_meta_label = []
+        support_sem_label = []
 
-        # For sanity check
-        support_y_real = []
-        target_y_real = []
+        query_data = []
+        query_meta_label = []
+        query_sem_label = []
 
-        for i, cur_class in enumerate(classes):  # each class
-            # Count number of times this class is inside the meta-test
-            n_test_samples = np.sum(cur_class == x_hat_class)
-
+        for i, cur_class in enumerate(support_classes):
             example_idxs = np.random.permutation(len(self.data_classes[cur_class]))
 
             # Cursor for popping example_idxs
-            j = 0
-
+            cursor = 0
             # Construct support
-            for _ in range(self.samples_per_class):
+            for _ in range(self.k_support_shot):
                 for __ in range(self._num_retries):
-                    if j >= len(example_idxs):
+                    if cursor >= len(example_idxs):
                         raise RuntimeError("Running out of candidate videos.")
-                    eid = example_idxs[j]
+
+                    eid = example_idxs[cursor]
                     absolute_eid = self.data_classes[cur_class][eid]["idx"]
-                    # print(cur_class, eid, absolute_eid, "\n")
-                    example_video = self._get_video(absolute_eid)  # dict
-                    j += 1
+
+                    example_video = self._get_video(absolute_eid)
+                    cursor += 1
+
                     if example_video:
                         break
                 if not example_video:
@@ -205,49 +203,56 @@ class Minikinetics(torch.utils.data.Dataset):
                         )
                     )
 
+                support_data.append(example_video["frames"][0])
                 # absolute label
-                support_y_real.append(example_video["label"])
-
+                support_sem_label.append(example_video["label"])
                 # relative label
-                example_video["label"] = i
-                support_x.append(example_video["frames"][0])
-                support_y.append(example_video["label"])
+                support_meta_label.append(i)
 
             # Construct query
-            for _ in range(n_test_samples):
-                for __ in range(self._num_retries):
-                    if j >= len(example_idxs):
-                        raise RuntimeError("Running out of candidate videos.")
-                    eid = example_idxs[j]
-                    absolute_eid = self.data_classes[cur_class][eid]["idx"]
-                    example_video = self._get_video(absolute_eid)  # dict
-                    j += 1
-                    if example_video:
-                        break
-                if not example_video:
-                    raise RuntimeError(
-                        "Failed to fetch video after {} retries.".format(
-                            self._num_retries
+            if cur_class in query_classes:
+                for _ in range(self.k_query_shot):
+                    for __ in range(self._num_retries):
+                        if cursor >= len(example_idxs):
+                            raise RuntimeError("Running out of candidate videos.")
+
+                        eid = example_idxs[cursor]
+                        absolute_eid = self.data_classes[cur_class][eid]["idx"]
+
+                        example_video = self._get_video(absolute_eid)
+                        cursor += 1
+
+                        if example_video:
+                            break
+                    if not example_video:
+                        raise RuntimeError(
+                            "Failed to fetch video after {} retries.".format(
+                                self._num_retries
+                            )
                         )
-                    )
 
-                # absolute label
-                target_y_real.append(example_video["label"])
+                    query_data.append(example_video["frames"][0])
+                    # absolute label
+                    query_sem_label.append(example_video["label"])
+                    # relative label
+                    query_meta_label.append(i)
 
-                # relative label
-                example_video["label"] = i
-                target_x.append(example_video["frames"][0])
-                target_y.append(example_video["label"])
+        support_data = torch.stack(support_data)
+        support_meta_label = torch.tensor(support_meta_label)
+        support_sem_label = torch.tensor(support_sem_label)
 
-        support_x = torch.stack(support_x)
-        support_y = torch.tensor(support_y)
-        target_x = torch.stack(target_x)
-        target_y = torch.tensor(target_y)
+        query_data = torch.stack(query_data)
+        query_meta_label = torch.tensor(query_meta_label)
+        query_sem_label = torch.tensor(query_sem_label)
 
-        support_y_real = torch.tensor(support_y_real)
-        target_y_real = torch.tensor(target_y_real)
-
-        return support_x, support_y, target_x, target_y
+        return (
+            support_data,
+            support_meta_label,
+            support_sem_label,
+            query_data,
+            query_meta_label,
+            query_sem_label,
+        )
 
     def _get_video(self, index):
         """
@@ -292,10 +297,8 @@ class Minikinetics(torch.utils.data.Dataset):
                 )
 
             # min_scale, max_scale, crop_size = [self.cfg.DATA.TEST_CROP_SIZE] * 3
-
             # The testing is deterministic and no jitter should be performed.
             # min_scale, max_scale, and crop_size are expect to be the same.
-
             # assert len({min_scale, max_scale, crop_size}) == 1
 
             min_scale = max_scale = self.cfg.DATA.TEST_SCALE_SIZE
@@ -401,7 +404,7 @@ class Minikinetics(torch.utils.data.Dataset):
 
         if spatial_idx == -1:
 
-            if hasattr(self, "square_jitter") and self.square_jitter:
+            if self.square_jitter:
                 frames = torch.nn.functional.interpolate(
                     frames,
                     size=(min_scale, min_scale),
@@ -420,7 +423,7 @@ class Minikinetics(torch.utils.data.Dataset):
             # min_scale, max_scale, and crop_size are expect to be the same.
             # assert len({min_scale, max_scale, crop_size}) == 1
 
-            if hasattr(self, "square_jitter") and self.square_jitter:
+            if self.square_jitter:
                 frames = torch.nn.functional.interpolate(
                     frames,
                     size=(min_scale, min_scale),

@@ -31,7 +31,7 @@ _config_dict = dict(
             # center, or right if width is larger than height, and top, middle,
             # or bottom if height is larger than width.
             TEST_SPATIAL_MODE=1,
-            TEST_AS_VAL=True,
+            TEST_AS_VAL=False,
             UNIFIED_EVAL=True,
             CENTER_CROP_MULTI_VIEW=False,
         ),

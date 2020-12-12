@@ -1025,7 +1025,7 @@ class MetaTestMeter(object):
         # writer.add_scalar("Epoch/val_top5_err", stats["top5_err"], cur_epoch)
 
 
-class MetaTrainMeterV2(object):
+class MetaTrainMeter(object):
     """
     Measure training stats.
     """

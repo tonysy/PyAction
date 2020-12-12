@@ -31,7 +31,7 @@ _config_dict = dict(
             # center, or right if width is larger than height, and top, middle,
             # or bottom if height is larger than width.
             TEST_SPATIAL_MODE=1,
-            TEST_AS_VAL=True,
+            TEST_AS_VAL=False,
             UNIFIED_EVAL=True,
             CENTER_CROP_MULTI_VIEW=False,
         ),
@@ -50,8 +50,6 @@ _config_dict = dict(
             "model_zoo/R50_IN1K.pyth",
         ),
         CHECKPOINT_INFLATE=True,
-        # For few-shot learning
-        TEST_AS_VAL=True,
     ),
     SOLVER=dict(
         BASE_LR=0.001,
@@ -75,17 +73,8 @@ _config_dict = dict(
         START_EPOCH=-1,
         END_EPOCH=-1,
         # For few-shot learning
-        # Eval Mode
-        UNIFIED_EVAL=True,
-        CENTER_CROP_MULTI_VIEW=False,
         # Splits to eval
         SPLITS=["test"],  # {"train", "test"}
-        # use specified model
-        LOAD_EPOCH=True,
-        EPOCH_IDS=list(range(100, 0, -10)),
-        NTEST=5,  # specify number of test epochs to be taken average
-        ENDLESS=False,
-        SUFFIX="256-224",
     ),
     DATA=dict(
         PATH_TO_DATA_DIR=osp.join(pyaction_home, "data/minikinetics"),

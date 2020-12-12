@@ -1,0 +1,4 @@
+#!/bin/bash
+
+export OMP_NUM_THREADS=1
+python3 /group/syzhang/gcluster/projects/PyActionStable/tools/meta_train.py $@

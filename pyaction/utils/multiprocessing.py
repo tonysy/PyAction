@@ -93,5 +93,8 @@ def run(local_rank, num_proc, func, init_method, shard_id, num_shards, backend, 
     except Exception as e:
         raise e
 
+    if os.path.exists(".ip_dist_url") and rank == 0:
+        os.remove(".ip_dist_url")
+
     torch.cuda.set_device(local_rank)
     func(cfg)

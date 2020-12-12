@@ -2,6 +2,7 @@ import os
 from tqdm import tqdm
 from collections import defaultdict
 import json
+import argparse
 
 
 def get_data_list(src_data_list, data_folder, image_paths):
@@ -19,10 +20,46 @@ def get_data_list(src_data_list, data_folder, image_paths):
     return data_list
 
 
+def parse_args():
+    """
+    Parse the following arguments for the data processing pipeline.
+    Args:
+
+        path_prefix (str): initialization method to launch the job with multiple
+            devices. Options includes TCP or shared file-system for
+            initialization. details can be find in
+            https://pytorch.org/docs/stable/distributed.html#tcp-initialization
+        """
+    parser = argparse.ArgumentParser(
+        description="Provide PyAction Kinetics Data Processing."
+    )
+
+    parser.add_argument(
+        "--video-folder",
+        help="Folder of Kinetics dataset",
+        # default=os.path.expanduser("./"), #"/public/sist/home/hexm/Datasets/",
+        type=str,
+    )
+
+    parser.add_argument(
+        "--frames-folder",
+        help="Folder of Kinetics dataset",
+        # default=os.path.expanduser(""), #"/public/sist/home/hexm/Datasets/",
+        type=str,
+    )
+    # if len(sys.argv) == 1:
+    #     parser.print_help()
+    return parser.parse_args()
+
 if __name__ == "__main__":
 
-    video_folder = "/data/datasets/video/sth_sth_v2/20bn-something-something-v2/"
-    frames_folder = "/data/datasets/video/sth_sth_v2/frames_ffmpeg_4.1.4"
+    args = parse_args()
+
+    # video_folder = "/data/datasets/video/sth_sth_v2/20bn-something-something-v2/"
+    # frames_folder = "/data/datasets/video/sth_sth_v2/frames_ffmpeg_4.1.4"
+    video_folder = args.video_folder
+    frames_folder = args.frames_folder
+
     image_paths = defaultdict(list)
     labels = defaultdict(list)
 

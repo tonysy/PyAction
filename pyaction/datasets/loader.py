@@ -10,6 +10,7 @@ from torch.utils.data._utils.collate import default_collate
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data.sampler import RandomSampler
 
+from pyaction.utils.distributed import get_world_size
 from .build import build_dataset
 
 
@@ -63,7 +64,7 @@ def construct_loader(cfg, split):
     if split in ["train"]:
         dataset_name = cfg.TRAIN.DATASET
         if cfg.DIST_MULTIPROCESS:
-            batch_size = int(cfg.TRAIN.BATCH_SIZE / cfg.NUM_GPUS)
+            batch_size = int(cfg.TRAIN.BATCH_SIZE / get_world_size())
         else:
             batch_size = int(cfg.TRAIN.PER_BATCH_SIZE)
         shuffle = True
@@ -71,7 +72,7 @@ def construct_loader(cfg, split):
     elif split in ["val"]:
         dataset_name = cfg.TRAIN.DATASET
         if cfg.DIST_MULTIPROCESS:
-            batch_size = int(cfg.TRAIN.BATCH_SIZE / cfg.NUM_GPUS)
+            batch_size = int(cfg.TRAIN.BATCH_SIZE / get_world_size())
         else:
             batch_size = int(cfg.TRAIN.PER_BATCH_SIZE)
         shuffle = False
@@ -79,7 +80,7 @@ def construct_loader(cfg, split):
     elif split in ["test"]:
         dataset_name = cfg.TEST.DATASET
         if cfg.DIST_MULTIPROCESS:
-            batch_size = int(cfg.TEST.BATCH_SIZE / cfg.NUM_GPUS)
+            batch_size = int(cfg.TEST.BATCH_SIZE / get_world_size())
         else:
             batch_size = int(cfg.TEST.PER_BATCH_SIZE)
         shuffle = False
