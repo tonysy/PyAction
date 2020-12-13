@@ -346,8 +346,8 @@ def meta_train(cfg):
         # Shuffle the dataset.
         loader.shuffle_dataset(train_loader, cur_epoch)
 
-        if cur_epoch == 0:
-            eval_epoch(val_loader, model, val_meter, cur_epoch, cfg, writer)
+        # if cur_epoch == 0:
+        #     eval_epoch(val_loader, model, val_meter, cur_epoch, cfg, writer)
 
         # Train for one epoch.
         # BN will not update if cfg.FREEZE_BN is True
