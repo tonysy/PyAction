@@ -32,6 +32,9 @@ pyaction_test
 pyaction_meta_run
 pyaction_run_queue
 
+pyaction_meta_train
+pyaction_meta_test
+
 # C extensions
 *.so
 log/
