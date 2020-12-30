@@ -19,7 +19,7 @@ _config_dict = dict(
         ),
         DATA=dict(
             # either '_repalced' or ''
-            CSV_SUFFIX="_replaced",
+            CSV_SUFFIX="",
             # Task related
             NUM_TRAIN_TASKS=1500,
             NUM_VAL_TASKS=1500,

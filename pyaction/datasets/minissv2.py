@@ -94,10 +94,14 @@ class Minissv2(torch.utils.data.Dataset):
         Construct the video loader.
         """
         # Loading video frames.
-        video_list_file = os.path.join(
-            self.cfg.DATA.PATH_TO_DATA_DIR,
-            "fewshot_{}.json".format(self.mode),
+        split_filename = "fewshot_{}{}.json".format(
+            self.mode, self.cfg.META.DATA.CSV_SUFFIX
         )
+        video_list_file = os.path.join(self.cfg.DATA.PATH_TO_DATA_DIR, split_filename)
+        logger.info(
+            "Current Mode:{}, used split: {}".format(self.mode, video_list_file)
+        )
+
         with PathManager.open(video_list_file, "r") as f:
             self.video_frames_dict = json.load(f)
 

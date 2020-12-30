@@ -16,9 +16,8 @@ data/ava/frame_lists
 data/ava/frames
 data/ssv2/frames
 data/ssv2/labels
-data/minissv2/fewshot_test.json
-data/minissv2/fewshot_train.json
-data/minissv2/fewshot_val.json
+data/minissv2/fewshot_*.json
+
 train_video_meta.json
 
 # Byte-compiled / optimized / DLL files
