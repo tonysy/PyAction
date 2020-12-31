@@ -183,3 +183,9 @@ def frozen_bn_stats(model):
     for m in model.modules():
         if isinstance(m, nn.BatchNorm3d):
             m.eval()
+
+
+def dump_meta_results(tables, ckpt_path, md_file="EVAL_RESULTS.md"):
+    with open(md_file, "a+") as f:
+        f.write("Evaluation results for {}:  \n".format(ckpt_path))
+        f.write(tables+"\n\n")

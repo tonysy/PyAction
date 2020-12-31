@@ -985,7 +985,7 @@ class MetaTestMeter(object):
         mem_usage = misc.gpu_mem_usage()
         stats = {
             "_type": "test_iter",
-            "epoch": "{}/{}".format(cur_epoch + 1, self._cfg.SOLVER.MAX_EPOCH),
+            "epoch": self._cfg.TEST.CHECKPOINT_FILE_PATH.split("/")[-1],
             "iter": "{}/{}".format(cur_iter + 1, self.max_iter),
             "time_diff": self.iter_timer.seconds(),
             "eta": eta,
@@ -1010,16 +1010,14 @@ class MetaTestMeter(object):
         mem_usage = misc.gpu_mem_usage()
         stats = {
             "_type": "test_epoch",
-            # "epoch": "{}/{}".format(cur_epoch + 1, self._cfg.SOLVER.MAX_EPOCH),
+            "epoch": self._cfg.TEST.CHECKPOINT_FILE_PATH.split("/")[-1],
             "time_diff": self.iter_timer.seconds(),
             "final_top1_err": top1_err,
             "final_top1_acc": 100.0 - top1_err,
-            # "top5_err": top5_err,
-            # "min_top1_err": self.min_top1_err,
-            # "min_top5_err": self.min_top5_err,
             "mem": int(np.ceil(mem_usage)),
         }
         logging.log_json_stats(stats)
+        return stats
         # if du.is_master_proc() and writer is not None:
         #     writer.add_scalar("Epoch/test_top1_err", stats["top1_err"], cur_epoch)
         # writer.add_scalar("Epoch/val_top5_err", stats["top5_err"], cur_epoch)

@@ -2,8 +2,9 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 """Functions for computing metrics."""
-
+import numpy as np
 import torch
+
 from sklearn.metrics import confusion_matrix
 
 
@@ -90,3 +91,16 @@ def top1_per_class(preds, labels):
     acc_dict = dict(zip(range(len(acc_list)), acc_list))
 
     return acc_dict
+
+
+def compute_confidence_interval(data):
+    """
+    Compute 95% confidence interval
+    :param data: An array of mean accuracy (or mAP) across a number of sampled episodes.
+    :return: the 95% confidence interval for this data.
+    """
+    a = 1.0 * np.array(data)
+    m = np.mean(a)
+    std = np.std(a)
+    pm = 1.96 * (std / np.sqrt(len(a)))
+    return m, pm

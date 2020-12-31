@@ -103,7 +103,7 @@ def train_epoch(train_loader, model, optimizer, train_meter, cur_epoch, cfg, wri
         loss = sum(loss for key, loss in losses.items() if "loss" in key)
 
         # check Nan Loss.
-        misc.check_nan_losses(loss)
+        # misc.check_nan_losses(loss)
 
         # Record loss computation time
         train_meter.iter_loss_toc()

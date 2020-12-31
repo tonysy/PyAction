@@ -35,6 +35,9 @@ _config_dict = dict(
             UNIFIED_EVAL=True,
             CENTER_CROP_MULTI_VIEW=False,
         ),
+        TEST=dict(
+            NUM_RUNS=1,
+        )
     ),
     BN=dict(
         USE_PRECISE_STATS=False,

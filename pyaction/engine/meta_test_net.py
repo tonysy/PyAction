@@ -22,6 +22,7 @@ from pyaction.datasets import loader
 import pyaction.utils.metrics as metrics
 
 from pyaction.utils.meters import MetaTestMeter
+from pyaction.utils.misc import dump_meta_results
 from net import build_model
 
 
@@ -47,7 +48,7 @@ def perform_test(model, cfg, logger):
 
     # Create video testing loaders.
     test_loader = loader.construct_loader(cfg, "test")
-    logger.info("Testing model for {} iterations".format(len(test_loader)))
+    logger.info("In one run, testing model for {} iterations".format(len(test_loader)))
 
     if cfg.DETECTION.ENABLE:
         raise NotImplementedError
@@ -55,61 +56,86 @@ def perform_test(model, cfg, logger):
         sanity_check(cfg, test_loader)
         test_meter = MetaTestMeter(len(test_loader), cfg)
 
-    # Enable eval mode.
-    model.eval()
-    test_meter.iter_tic()
+    num_runs = cfg.META.TEST.NUM_RUNS
+    results_list = []
 
-    for cur_iter, (
-        support_data,
-        support_meta_label,
-        support_sem_label,
-        query_data,
-        query_meta_label,
-        query_sem_label,
-    ) in enumerate(test_loader):
-        # (batchsize, classes_per_set * samples_per_class)
-        batch_size, n_samples = support_meta_label.shape
-
-        # Transfer the data to the current GPU device.
-        support_data = support_data.cuda(non_blocking=True)
-        support_meta_label = support_meta_label.cuda(non_blocking=True)
-
-        query_data = query_data.cuda(non_blocking=True)
-        query_meta_label = query_meta_label.cuda(non_blocking=True)
-
-        if cfg.DETECTION.ENABLE:
-            raise NotImplementedError
-        else:
-            # preds = model(inputs)
-            query_meta_preds = model([support_data, query_data], support_meta_label)
-
-            meta_num_correct = metrics.topks_correct(
-                query_meta_preds, query_meta_label, (1,)
-            )[0]
-            meta_top1_err = (1.0 - meta_num_correct / query_meta_preds.size(0)) * 100.0
-
-            if cfg.NUM_GPUS > 1:
-                meta_top1_err, meta_top1_err = du.all_reduce(
-                    [meta_top1_err, meta_top1_err]
-                )
-
-            # # Copy the errors from GPU to CPU (sync point).
-            meta_top1_err, meta_top1_err = meta_top1_err.item(), meta_top1_err.item()
-
-            test_meter.iter_toc()
-
-            # Update and log stats.
-            test_meter.update_stats(
-                meta_top1_err, meta_top1_err, support_data.size(0) * cfg.NUM_GPUS
-            )
-
-            test_meter.log_iter_stats(-1, cur_iter)
-
+    for _ in range(num_runs):
+        logger.info("Testing Runs Index:{}".format(_+1))
+        # for one evaluation process
+        model.eval()
         test_meter.iter_tic()
 
-    # Log epoch stats.
-    test_meter.log_epoch_stats(-1)
-    test_meter.reset()
+        for cur_iter, (
+            support_data,
+            support_meta_label,
+            support_sem_label,
+            query_data,
+            query_meta_label,
+            query_sem_label,
+        ) in enumerate(test_loader):
+            # (batchsize, classes_per_set * samples_per_class)
+            batch_size, n_samples = support_meta_label.shape
+
+            # Transfer the data to the current GPU device.
+            support_data = support_data.cuda(non_blocking=True)
+            support_meta_label = support_meta_label.cuda(non_blocking=True)
+
+            query_data = query_data.cuda(non_blocking=True)
+            query_meta_label = query_meta_label.cuda(non_blocking=True)
+
+            if cfg.DETECTION.ENABLE:
+                raise NotImplementedError
+            else:
+                # preds = model(inputs)
+                query_meta_preds = model([support_data, query_data], support_meta_label)
+
+                meta_num_correct = metrics.topks_correct(
+                    query_meta_preds, query_meta_label, (1,)
+                )[0]
+                meta_top1_err = (1.0 - meta_num_correct / query_meta_preds.size(0)) * 100.0
+
+                if cfg.NUM_GPUS > 1:
+                    meta_top1_err, meta_top1_err = du.all_reduce(
+                        [meta_top1_err, meta_top1_err]
+                    )
+
+                # # Copy the errors from GPU to CPU (sync point).
+                meta_top1_err, meta_top1_err = meta_top1_err.item(), meta_top1_err.item()
+
+                test_meter.iter_toc()
+
+                # Update and log stats.
+                test_meter.update_stats(
+                    meta_top1_err, meta_top1_err, support_data.size(0) * cfg.NUM_GPUS
+                )
+
+                test_meter.log_iter_stats(-1, cur_iter)
+
+            test_meter.iter_tic()
+
+        # Log epoch stats.
+        one_stats = test_meter.log_epoch_stats(-1)
+        test_meter.reset()
+
+        results_list.append(one_stats)
+    # compute the average results and dump to the RESULTS.md
+    if du.is_master_proc():
+        acc_list = [item['final_top1_acc'] for item in results_list]
+        mean, deltas = metrics.compute_confidence_interval(acc_list)
+        data_dict = {}
+        data_dict['n_way'] = cfg.META.SETTINGS.N_SUPPORT_WAY
+        data_dict['k_shot'] = cfg.META.SETTINGS.K_SUPPORT_SHOT
+        data_dict['num_tasks'] = cfg.META.DATA.NUM_TEST_TASKS
+
+        for idx, item in enumerate(acc_list):
+            key = 'idx:{}'.format(idx+1)
+            data_dict[key] = item
+        data_dict['average'] = mean
+        data_dict['interval'] = deltas
+        table = logging.create_small_table(data_dict)
+        logger.info("\n"+table+"\n")
+        dump_meta_results(table, cfg.TEST.CHECKPOINT_FILE_PATH)
+    # return results_list
 
 
 def filter_by_iters(file_list, start_epoch, end_epoch):
@@ -211,6 +237,7 @@ def meta_test(cfg):
         last_checkpoint = cu.get_last_checkpoint(cfg.OUTPUT_DIR)
         logger.info("Current checkpoint is:{}".format(last_checkpoint))
         cu.load_checkpoint(last_checkpoint, model, cfg.NUM_GPUS > 1)
+        cfg.TEST.CHECKPOINT_FILE_PATH = last_checkpoint
         perform_test(model, cfg, logger)
 
     elif cfg.TEST.START_EPOCH != cfg.TEST.END_EPOCH:
@@ -220,6 +247,7 @@ def meta_test(cfg):
             model = build_model(cfg)  # model = model_builder.build_model(cfg)
             logger.info("Current checkpoint is:{}".format(valid_file))
             cu.load_checkpoint(valid_file, model, cfg.NUM_GPUS > 1)
+            cfg.TEST.CHECKPOINT_FILE_PATH = valid_file
             perform_test(model, cfg, logger)
     else:
         # raise NotImplementedError("Unknown way to load checkpoint.")
